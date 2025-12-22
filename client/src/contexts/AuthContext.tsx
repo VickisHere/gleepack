@@ -1,0 +1,112 @@
+import React, { createContext, useContext, useEffect, useState } from "react";
+
+type User = { id: string; email: string; name?: string; role?: string } | null;
+
+type AuthContextType = {
+  user: User;
+  token: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<void>;
+  logout: () => void;
+  isAuthenticated: boolean;
+  apiFetch?: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+};
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const AUTH_TOKEN_KEY = "gleepack_token";
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem(AUTH_TOKEN_KEY));
+  const [user, setUser] = useState<User>(null);
+
+  useEffect(() => {
+    if (token) {
+      // Optionally decode token or fetch profile
+      // We'll store minimal user info in localStorage when logging in/registering
+      const stored = localStorage.getItem('gleepack_user');
+      if (stored) setUser(JSON.parse(stored));
+    } else {
+      setUser(null);
+    }
+  }, [token]);
+
+  const saveAuth = (t: string, u: User) => {
+    setToken(t);
+    setUser(u);
+    localStorage.setItem(AUTH_TOKEN_KEY, t);
+    localStorage.setItem('gleepack_user', JSON.stringify(u));
+  };
+
+  // helper to call API with auth header
+  async function apiFetch(input: RequestInfo, init?: RequestInit) {
+    const headers = new Headers(init?.headers || {});
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    headers.set('Content-Type', headers.get('Content-Type') || 'application/json');
+    const res = await fetch(input, { ...(init || {}), headers });
+    if (res.status === 401) {
+      clearAuth();
+      throw new Error('Unauthorized');
+    }
+    return res;
+  }
+
+  const clearAuth = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem('gleepack_user');
+  };
+
+  async function login(email: string, password: string) {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || 'Login failed');
+    }
+    const body = await res.json();
+    saveAuth(body.token, body.user);
+  }
+
+  async function register(email: string, password: string, name?: string) {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || 'Register failed');
+    }
+    const body = await res.json();
+    saveAuth(body.token, body.user);
+  }
+
+  function logout() {
+    clearAuth();
+  }
+
+  const value: AuthContextType = {
+    user,
+    token,
+    login,
+    register,
+    logout,
+    isAuthenticated: !!token,
+    apiFetch,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export function useAuthContext() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuthContext must be used within AuthProvider');
+  return ctx;
+}
+
+export default AuthContext;

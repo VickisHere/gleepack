@@ -1,0 +1,211 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* GleePack Elegant & Trusted Color Palette */
+    --background: 40 33% 98%;
+    --foreground: 280 30% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 280 30% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 280 30% 15%;
+
+    /* Deep Purple Primary */
+    --primary: 300 45% 25%;
+    --primary-foreground: 40 33% 98%;
+
+    /* Gold Accent */
+    --secondary: 43 74% 49%;
+    --secondary-foreground: 280 30% 15%;
+
+    --muted: 40 20% 94%;
+    --muted-foreground: 280 15% 45%;
+
+    /* Warm Cream Accent */
+    --accent: 43 74% 49%;
+    --accent-foreground: 280 30% 15%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 280 15% 85%;
+    --input: 280 15% 85%;
+    --ring: 300 45% 25%;
+
+    --radius: 0.75rem;
+
+    /* Custom GleePack Colors */
+    --gold: 43 74% 49%;
+    --gold-light: 43 74% 65%;
+    --purple-light: 300 35% 45%;
+    --purple-dark: 300 50% 18%;
+    --cream: 40 33% 96%;
+    --cream-dark: 40 25% 90%;
+
+    /* Festive Gradient */
+    --gradient-festive: linear-gradient(135deg, hsl(300 45% 25%) 0%, hsl(280 40% 35%) 50%, hsl(43 74% 49%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(43 74% 55%) 0%, hsl(43 74% 45%) 100%);
+    --gradient-purple: linear-gradient(135deg, hsl(300 50% 18%) 0%, hsl(300 45% 30%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 2px 8px hsl(280 30% 15% / 0.08);
+    --shadow-md: 0 4px 16px hsl(280 30% 15% / 0.12);
+    --shadow-lg: 0 8px 32px hsl(280 30% 15% / 0.16);
+    --shadow-gold: 0 4px 20px hsl(43 74% 49% / 0.3);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 280 30% 15%;
+    --sidebar-primary: 300 45% 25%;
+    --sidebar-primary-foreground: 40 33% 98%;
+    --sidebar-accent: 43 74% 49%;
+    --sidebar-accent-foreground: 280 30% 15%;
+    --sidebar-border: 280 15% 85%;
+    --sidebar-ring: 300 45% 25%;
+  }
+
+  .dark {
+    --background: 280 35% 8%;
+    --foreground: 40 33% 96%;
+
+    --card: 280 30% 12%;
+    --card-foreground: 40 33% 96%;
+
+    --popover: 280 30% 12%;
+    --popover-foreground: 40 33% 96%;
+
+    --primary: 43 74% 55%;
+    --primary-foreground: 280 35% 8%;
+
+    --secondary: 300 35% 35%;
+    --secondary-foreground: 40 33% 96%;
+
+    --muted: 280 25% 18%;
+    --muted-foreground: 40 20% 65%;
+
+    --accent: 43 74% 55%;
+    --accent-foreground: 280 35% 8%;
+
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 280 25% 22%;
+    --input: 280 25% 22%;
+    --ring: 43 74% 55%;
+
+    --gold: 43 74% 55%;
+    --gold-light: 43 74% 65%;
+    --purple-light: 300 30% 50%;
+    --purple-dark: 280 35% 8%;
+    --cream: 40 20% 20%;
+    --cream-dark: 40 15% 15%;
+
+    --sidebar-background: 280 35% 10%;
+    --sidebar-foreground: 40 33% 96%;
+    --sidebar-primary: 43 74% 55%;
+    --sidebar-primary-foreground: 280 35% 8%;
+    --sidebar-accent: 300 30% 30%;
+    --sidebar-accent-foreground: 40 33% 96%;
+    --sidebar-border: 280 25% 22%;
+    --sidebar-ring: 43 74% 55%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border) / 1);
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .btn-festive {
+    @apply bg-primary text-primary-foreground hover:opacity-90 transition-all duration-300;
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn-gold {
+    background: var(--gradient-gold);
+    @apply text-foreground font-semibold hover:opacity-90 transition-all duration-300;
+    box-shadow: var(--shadow-gold);
+  }
+
+  .card-festive {
+    @apply bg-card rounded-xl border border-border;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+  }
+
+  .card-festive:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  .gradient-text {
+    background: var(--gradient-festive);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .section-padding {
+    @apply py-16 md:py-24 px-4 md:px-8;
+  }
+
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 md:px-8;
+  }
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, transparent 0%, hsl(var(--gold) / 0.3) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
