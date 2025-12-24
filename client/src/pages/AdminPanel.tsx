@@ -845,9 +845,7 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
     const uploadImage = async (productId: string, file: File) => {
         const dataUrl = await toBase64(file);
         const filename = `${productId}-${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
-        const res = apiFetch
-            ? await apiFetch(`/api/products/${productId}/image`, { method: 'POST', body: JSON.stringify({ filename, data: dataUrl }), headers: { 'Content-Type': 'application/json' } })
-            : await fetch(`/api/products/${productId}/image`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename, data: dataUrl }) });
+        const res = await apiFetch(`/api/products/${productId}/image`, { method: 'POST', body: JSON.stringify({ filename, data: dataUrl }), headers: { 'Content-Type': 'application/json' } });
         if (!res.ok) throw new Error('Upload failed');
         const json = await res.json();
         return json.url;
@@ -859,7 +857,7 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
                 console.debug('Creating product payload:', payload);
                 let res;
                 try {
-                    res = apiFetch ? await apiFetch('/api/products', { method: 'POST', body: JSON.stringify(payload) }) : await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    res = await apiFetch('/api/products', { method: 'POST', body: JSON.stringify(payload) });
                 } catch (err) {
                     console.error('Network/create request failed', err);
                     alert('Network error while creating product (see console)');
@@ -924,7 +922,7 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
                 console.debug('Updating product payload:', editingId, payload);
                 let res;
                 try {
-                    res = apiFetch ? await apiFetch(`/api/products/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) }) : await fetch(`/api/products/${editingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    res = await apiFetch(`/api/products/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
                 } catch (err) {
                     console.error('Network/update request failed', err);
                     alert('Network error while updating product (see console)');
@@ -943,7 +941,7 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
             if (uploadFile) {
                 try {
                     const url = await uploadImage(updated.id || updated._id || editingId, uploadFile);
-                    const r2 = apiFetch ? await apiFetch(`/api/products/${editingId}`, { method: 'PATCH', body: JSON.stringify({ image: url }) }) : await fetch(`/api/products/${editingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: url }) });
+                    const r2 = await apiFetch(`/api/products/${editingId}`, { method: 'PATCH', body: JSON.stringify({ image: url }) });
                     if (r2.ok) updated.image = url;
                 } catch (e) {
                     console.error('Image upload failed', e);
@@ -967,7 +965,7 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
         const ok = window.confirm(`Delete product ${p.name} (${p.id})? This cannot be undone.`);
         if (!ok) return;
         try {
-            const res = apiFetch ? await apiFetch(`/api/products/${p.id}`, { method: 'DELETE' }) : await fetch(`/api/products/${p.id}`, { method: 'DELETE' });
+            const res = await apiFetch(`/api/products/${p.id}`, { method: 'DELETE' });
             if (!res.ok) {
                 const b = await res.json().catch(() => ({}));
                 alert(b.error || 'Delete failed');

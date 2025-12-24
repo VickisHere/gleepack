@@ -135,7 +135,7 @@ router.get('/google/callback',
       const token = jwt.sign({ sub: String(user._id), email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
       
       // Redirect to frontend with token
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://gleepack.vercel.app';
       res.redirect(`${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
         id: String(user._id),
         email: user.email,
