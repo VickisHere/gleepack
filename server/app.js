@@ -67,7 +67,16 @@ app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/stylesheets/style.css', function(req, res) {
+  res.sendFile(path.join(__dirname, 'public/stylesheets/style.css'));
+});
+app.get('/favicon.ico', function(req, res) {
+  res.status(404).send('Not found');
+});
+app.get('/favicon.png', function(req, res) {
+  res.status(404).send('Not found');
+});
 
 app.use('/', indexRouter);
 app.use('/api/auth', authRouter);
