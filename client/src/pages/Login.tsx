@@ -26,7 +26,8 @@ const Login: React.FC = () => {
   }, []);
 
   const handleGoogleLogin = () => {
-    window.location.href = '/api/auth/google';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+    window.location.href = `${apiUrl}/api/auth/google`;
   };
 
   async function submit(e: React.FormEvent) {
