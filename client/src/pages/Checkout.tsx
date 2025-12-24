@@ -367,18 +367,19 @@ const Checkout = () => {
       currentAddress?.flatNo &&
       currentAddress?.area &&
       formData.date &&
-      formData.time &&
-      district.toLowerCase() === 'saharsa';
+      formData.time;
     
-    if (!hasRequiredFields) return false;
+    console.log('Form validation:', {
+      name: !!formData.name,
+      phone: !!formData.phone,
+      flatNo: !!currentAddress?.flatNo,
+      area: !!currentAddress?.area,
+      date: !!formData.date,
+      time: !!formData.time,
+      hasRequiredFields
+    });
     
-    // Check if booking is at least 20 minutes before event time
-    const eventDateTime = new Date(`${formData.date}T${formData.time}`);
-    const now = new Date();
-    const timeDiff = eventDateTime.getTime() - now.getTime();
-    const minutesDiff = timeDiff / (1000 * 60);
-    
-    return minutesDiff >= 20;
+    return hasRequiredFields;
   };
 
   if (items.length === 0) {

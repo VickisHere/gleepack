@@ -55,7 +55,7 @@ const Orders: React.FC = () => {
         setSelectedOrder((cur) => (cur && cur._id === updated._id ? updated : cur));
         
         // Show notification for customer's own orders
-        if (user && (updated.userId === user.sub || updated.userEmail === user.email)) {
+        if (user && (updated.userId === user.id || updated.userEmail === user.email)) {
           const statusMessage = {
             'confirmed': '🎉 Your order has been confirmed!',
             'processing': '🔄 Your order is now being processed',
@@ -72,7 +72,7 @@ const Orders: React.FC = () => {
       });
       socket.on('order_created', (created: any) => {
         // if this order belongs to current user, add it
-        if (user && (created.userId === user.sub || created.userEmail === user.email)) {
+        if (user && (created.userId === user.id || created.userEmail === user.email)) {
           setOrders((s) => [created, ...s]);
           toast.success('🎉 New order placed successfully!', {
             duration: 5000,
