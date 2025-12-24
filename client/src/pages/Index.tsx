@@ -16,7 +16,7 @@ const Index = () => {
     let mounted = true;
     (async () => {
       try {
-        const res = apiFetch ? await apiFetch('/api/products') : await fetch('/api/products');
+        const res = await apiFetch('/api/products');
         if (!res.ok) throw new Error('Failed to load products');
         const all = await res.json();
         const featured = (all || []).filter((k: any) => k.tier === 'premium').slice(0, 3);

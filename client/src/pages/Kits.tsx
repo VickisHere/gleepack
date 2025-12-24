@@ -23,7 +23,7 @@ const Kits = () => {
     let mounted = true;
     (async () => {
       try {
-        const res = apiFetch ? await apiFetch('/api/products') : await fetch('/api/products');
+        const res = await apiFetch('/api/products');
         if (!res.ok) throw new Error('Could not load products');
         const data = await res.json();
         if (mounted) setProducts(data || []);

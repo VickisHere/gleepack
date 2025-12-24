@@ -16,6 +16,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_TOKEN_KEY = "gleepack_token";
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3010';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(AUTH_TOKEN_KEY));
@@ -41,10 +42,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // helper to call API with auth header
   async function apiFetch(input: RequestInfo, init?: RequestInit) {
+    let url = input;
+    if (typeof input === 'string' && input.startsWith('/')) {
+      url = `${API_BASE_URL}${input}`;
+    }
     const headers = new Headers(init?.headers || {});
     if (token) headers.set('Authorization', `Bearer ${token}`);
     headers.set('Content-Type', headers.get('Content-Type') || 'application/json');
-    const res = await fetch(input, { ...(init || {}), headers });
+    const res = await fetch(url, { ...(init || {}), headers });
     if (res.status === 401) {
       clearAuth();
       throw new Error('Unauthorized');
@@ -60,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   async function login(email: string, password: string) {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -74,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function register(email: string, password: string, name?: string) {
-    const res = await fetch('/api/auth/register', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name }),

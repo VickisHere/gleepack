@@ -49,7 +49,7 @@ const KitDetails = () => {
       }
       
       try {
-        const res = apiFetch ? await apiFetch(`/api/products/${id}`) : await fetch(`/api/products/${id}`);
+        const res = await apiFetch(`/api/products/${id}`);
         if (!res.ok) throw new Error('Not found');
         const data = await res.json();
         if (mounted) {
@@ -59,7 +59,7 @@ const KitDetails = () => {
         window.scrollTo(0, 0);
 
         // Fetch related kits
-        const relatedRes = apiFetch ? await apiFetch('/api/products') : await fetch('/api/products');
+        const relatedRes = await apiFetch('/api/products');
         if (relatedRes.ok) {
           const allKits = await relatedRes.json();
           const related = allKits.filter((k: any) => k.category === data.category && k.id !== data.id);

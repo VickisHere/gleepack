@@ -180,12 +180,7 @@ const Checkout = () => {
 
       // COD flow: create order directly
       if (formData.payment === 'cod') {
-        let res;
-        if (token && apiFetch) {
-          res = await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(orderPayload) });
-        } else {
-          res = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderPayload) });
-        }
+        const res = await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(orderPayload) });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           toast.error(body.error || 'Order failed');
@@ -234,7 +229,7 @@ const Checkout = () => {
 
       // Online payment flow: request a Razorpay order then open checkout
       // Create a Razorpay order on the server
-      const rpRes = apiFetch ? await apiFetch('/api/payments/razorpay/order', { method: 'POST', body: JSON.stringify({ amount: totalPrice }) }) : await fetch('/api/payments/razorpay/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: totalPrice }) });
+      const rpRes = await apiFetch('/api/payments/razorpay/order', { method: 'POST', body: JSON.stringify({ amount: totalPrice }) });
       if (!rpRes.ok) {
         const body = await rpRes.json().catch(() => ({}));
         toast.error(body.error || 'Payment initialization failed');
@@ -265,7 +260,7 @@ const Checkout = () => {
         handler: async function (response: any) {
           // verify on server and create order record
           try {
-            const verifyRes = apiFetch ? await apiFetch('/api/payments/razorpay/verify', { method: 'POST', body: JSON.stringify({ razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, orderPayload }) }) : await fetch('/api/payments/razorpay/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, orderPayload }) });
+            const verifyRes = await apiFetch('/api/payments/razorpay/verify', { method: 'POST', body: JSON.stringify({ razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, orderPayload }) });
             if (!verifyRes.ok) {
               const body = await verifyRes.json().catch(() => ({}));
               toast.error(body.error || 'Payment verification failed');

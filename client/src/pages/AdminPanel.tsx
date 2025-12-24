@@ -808,7 +808,7 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
     const load = async () => {
         setLoading(true);
         try {
-            const res = apiFetch ? await apiFetch('/api/products') : await fetch('/api/products');
+            const res = await apiFetch('/api/products');
             if (!res.ok) throw new Error('Failed');
             const data = await res.json();
             setProducts(data || []);
