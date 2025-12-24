@@ -7,7 +7,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 type Props = { open: boolean; onOpenChange: (v: boolean) => void };
 
 const ProfileModal: React.FC<Props> = ({ open, onOpenChange }) => {
-  const { apiFetch, user, token } = useAuthContext();
+  const { apiFetch, user, token, logout } = useAuthContext();
   const [profile, setProfile] = useState<{ id?: string; email?: string; name?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -36,6 +36,11 @@ const ProfileModal: React.FC<Props> = ({ open, onOpenChange }) => {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleLogout() {
+    logout();
+    onOpenChange(false);
   }
 
   return (
@@ -67,6 +72,7 @@ const ProfileModal: React.FC<Props> = ({ open, onOpenChange }) => {
           )}
         </div>
         <DialogFooter className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={handleLogout}>Logout</Button>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
           <Button onClick={save} disabled={saving || loading}>{saving ? 'Saving...' : 'Save'}</Button>
         </DialogFooter>

@@ -66,10 +66,21 @@ router.post('/razorpay/verify', express.json(), async (req, res) => {
 
     const actor = userEmail || (orderPayload && orderPayload.contact && orderPayload.contact.email) || 'guest';
 
+    // Determine payment method from orderPayload
+    const incomingPaymentMethod = orderPayload && orderPayload.paymentMethod ? String(orderPayload.paymentMethod).toLowerCase() : 'online';
+    let paymentMethod = incomingPaymentMethod;
+    
+    // Normalize payment method names for display
+    if (paymentMethod === 'cod') {
+      paymentMethod = 'COD';
+    } else {
+      paymentMethod = 'Online';
+    }
+
     const orderDoc = Object.assign({}, orderPayload || {}, {
       userId,
       userEmail,
-      paymentMethod: 'razorpay',
+      paymentMethod: paymentMethod,
       paymentStatus: 'paid',
       paidAt: now,
       paymentUpdatedAt: now,

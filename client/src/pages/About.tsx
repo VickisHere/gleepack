@@ -1,4 +1,4 @@
-import { Sparkles, Eye, Tag, Truck, PartyPopper, Utensils, Gamepad2, BookOpen, Clock, Play, Car, Users } from 'lucide-react';
+import { Sparkles, Eye, Tag, Truck, PartyPopper, Utensils, Gamepad2, BookOpen, Clock, Play, Car, Users, Heart, Star, Shield, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Layout from '@/components/layout/Layout';
@@ -10,142 +10,237 @@ const About = () => {
   const problems = [
     {
       icon: <Car className="h-6 w-6" />,
-      title: language === 'en' ? 'Traffic Jams' : 'ट्रैफिक जाम',
-      desc: language === 'en' ? 'Running between 4 shops in peak traffic' : 'भीड़भाड़ में 4 दुकानों के बीच भागना'
+      title: language === 'en' ? 'Running Between Shops' : 'दुकानों के बीच भागदौड़',
+      desc: language === 'en' ? 'Hours wasted in traffic visiting multiple stores' : 'कई दुकानों में जाने में घंटों बर्बाद'
     },
     {
       icon: <Users className="h-6 w-6" />,
-      title: language === 'en' ? 'Endless Bargaining' : 'अंतहीन मोलभाव',
-      desc: language === 'en' ? 'Haggling for fair prices everywhere' : 'हर जगह सही दाम के लिए मोलभाव'
+      title: language === 'en' ? 'Forgetting Items' : 'चीजें भूल जाना',
+      desc: language === 'en' ? 'Realizing you missed important decorations at home' : 'घर पर पहुंचकर याद आना कि जरूरी सजावट भूल गए'
+    },
+    {
+      icon: <Clock className="h-6 w-6" />,
+      title: language === 'en' ? 'Last Minute Rush' : 'आखिरी समय की हड़बड़ी',
+      desc: language === 'en' ? 'Panic shopping hours before the celebration' : 'जश्न से घंटे पहले घबराहट में खरीदारी'
+    },
+    {
+      icon: <Tag className="h-6 w-6" />,
+      title: language === 'en' ? 'Hidden Costs' : 'छुपी हुई लागत',
+      desc: language === 'en' ? 'Surprise bills from different shops' : 'विभिन्न दुकानों से आश्चर्यजनक बिल'
     }
   ];
 
   const promises = [
     {
       icon: <Eye className="h-5 w-5" />,
-      title: language === 'en' ? 'Total Transparency' : 'पूर्ण पारदर्शिता',
-      desc: language === 'en' ? 'What you see is exactly what you get. No blurred photos, no surprises.' : 'जो दिखता है वही मिलता है। कोई धुंधली फोटो नहीं, कोई सरप्राइज नहीं।'
+      title: language === 'en' ? 'Complete Transparency' : 'पूर्ण पारदर्शिता',
+      desc: language === 'en' ? 'See exactly what you get. No hidden surprises.' : 'देखें कि आपको क्या मिलेगा। कोई छुपा सरप्राइज नहीं।'
     },
     {
       icon: <Tag className="h-5 w-5" />,
-      title: language === 'en' ? 'Fixed Pricing' : 'फिक्स्ड प्राइसिंग',
-      desc: language === 'en' ? 'No hidden costs. One kit, one fair price. Save up to 30% vs buying retail.' : 'कोई छुपी लागत नहीं। एक किट, एक उचित दाम। रिटेल से 30% तक बचाएं।'
+      title: language === 'en' ? 'Fixed Fair Pricing' : 'फिक्स्ड उचित मूल्य',
+      desc: language === 'en' ? 'One price for everything. Save 30-40% vs individual shopping.' : 'सब कुछ के लिए एक दाम। व्यक्तिगत खरीदारी से 30-40% बचाएं।'
     },
     {
       icon: <Truck className="h-5 w-5" />,
-      title: language === 'en' ? 'Zero Hassle' : 'ज़ीरो परेशानी',
-      desc: language === 'en' ? 'Delivered to your doorstep. You just focus on the celebration.' : 'आपके दरवाजे तक डिलीवरी। आप बस जश्न पर ध्यान दें।'
+      title: language === 'en' ? 'Doorstep Delivery' : 'दरवाजे तक डिलीवरी',
+      desc: language === 'en' ? 'Everything arrives ready. You just celebrate.' : 'सब कुछ तैयार पहुंचता है। आप बस जश्न मनाएं।'
+    },
+    {
+      icon: <Shield className="h-5 w-5" />,
+      title: language === 'en' ? 'Quality Guarantee' : 'गुणवत्ता गारंटी',
+      desc: language === 'en' ? 'Premium quality items, sanitized and ready to use.' : 'प्रीमियम गुणवत्ता वाली वस्तुएं, स्वच्छ और उपयोग के लिए तैयार।'
     }
   ];
 
   const boxContents = [
-    { icon: <PartyPopper className="h-8 w-8" />, label: language === 'en' ? 'Premium Decor' : 'प्रीमियम सजावट' },
-    { icon: <Utensils className="h-8 w-8" />, label: language === 'en' ? 'Disposables' : 'डिस्पोजेबल' },
-    { icon: <Gamepad2 className="h-8 w-8" />, label: language === 'en' ? 'Fun & Games' : 'मज़ा और खेल' },
-    { icon: <BookOpen className="h-8 w-8" />, label: language === 'en' ? 'Setup Guide' : 'सेटअप गाइड' }
+    { icon: <PartyPopper className="h-8 w-8" />, label: language === 'en' ? 'Premium Decorations' : 'प्रीमियम सजावट' },
+    { icon: <Utensils className="h-8 w-8" />, label: language === 'en' ? 'Complete Cutlery Set' : 'पूर्ण कटलरी सेट' },
+    { icon: <Gamepad2 className="h-8 w-8" />, label: language === 'en' ? 'Fun Activities' : 'मज़ेदार गतिविधियां' },
+    { icon: <BookOpen className="h-8 w-8" />, label: language === 'en' ? 'Easy Setup Guide' : 'आसान सेटअप गाइड' },
+    { icon: <Star className="h-8 w-8" />, label: language === 'en' ? 'Photo Props' : 'फोटो प्रॉप्स' },
+    { icon: <Heart className="h-8 w-8" />, label: language === 'en' ? 'Personal Touch' : 'व्यक्तिगत स्पर्श' }
   ];
 
   return (
     <Layout>
       {/* Hero Section */}
-      <section className="py-8 px-4">
-        <div className="container-custom max-w-5xl mx-auto">
-          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-cream p-6 text-center">
-            {/* Decorative elements */}
-            <div className="absolute top-4 left-4 w-8 h-8 rounded-full bg-pink-300/50"></div>
-            <div className="absolute top-8 right-8 w-6 h-6 rounded-full bg-green-300/50"></div>
-            <div className="absolute bottom-12 left-8 w-4 h-4 rounded-full bg-blue-300/50"></div>
-            
-            {/* Since badge */}
-            <div className="inline-block px-3 py-1 bg-white/80 rounded-full text-xs font-medium text-primary mb-4">
-              SINCE 2023
+      <section className="py-12 px-4 bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        <div className="container-custom max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6">
+              <Sparkles className="h-4 w-4" />
+              {language === 'en' ? 'Our Story' : 'हमारी कहानी'}
             </div>
             
-            {/* Illustration placeholder - couple illustration */}
-            <div className="w-32 h-32 mx-auto mb-4 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
-              <span className="text-5xl">👨‍👩‍👦</span>
-            </div>
-            
-            <h1 className="font-display text-2xl md:text-3xl font-bold mb-2">
-              {language === 'en' ? 'Simplifying Celebrations across India' : 'पूरे भारत में जश्न को आसान बनाना'}
+            <h1 className="font-display text-3xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+              {language === 'en' 
+                ? 'Making Every Celebration Magical' 
+                : 'हर जश्न को जादुई बनाना'}
             </h1>
-            <p className="text-sm text-muted-foreground mb-4">
-              {language === 'en' ? 'We bring the entire party to your doorstep in one magical box.' : 'हम पूरी पार्टी एक जादुई बॉक्स में आपके दरवाजे तक लाते हैं।'}
-            </p>
             
-            <Button variant="outline" className="rounded-full bg-white hover:bg-white/80">
-              <Play className="h-4 w-4 mr-2" />
-              {language === 'en' ? 'Watch Our Story' : 'हमारी कहानी देखें'}
-            </Button>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
+              {language === 'en' 
+                ? 'From the chaos of traditional shopping to the joy of stress-free celebrations - this is how GleePack was born.'
+                : 'पारंपरिक खरीदारी के अराजकता से लेकर तनाव-मुक्त जश्न की खुशी तक - यही है GleePack की जन्म कहानी।'}
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div className="space-y-6">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
+                    <span className="text-2xl">👨‍👩‍👧‍👦</span>
+                  </div>
+                  <div>
+                    <h3 className="font-display font-semibold text-lg">
+                      {language === 'en' ? 'Family First' : 'परिवार पहले'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'en' ? 'Started by parents, for parents' : 'माता-पिता द्वारा शुरू किया गया, माता-पिता के लिए'}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'en' 
+                    ? 'We know the stress of planning perfect celebrations. That\'s why we created GleePack - to give every family the magical moments they deserve.'
+                    : 'हम जानते हैं कि परफेक्ट जश्न प्लान करने का तनाव क्या होता है। यही कारण है कि हमने GleePack बनाया - हर परिवार को वे जादुई पल देने के लिए जो वे हकदार हैं।'}
+                </p>
+              </div>
+              
+              <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold text-sm">
+                    {language === 'en' ? '1000+ Happy Families' : '1000+ खुश परिवार'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold text-sm">
+                    {language === 'en' ? 'Pan-India Delivery' : 'पैन-इंडिया डिलीवरी'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold text-sm">
+                    {language === 'en' ? 'Quality Guaranteed' : 'गुणवत्ता गारंटी'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <div className="bg-gradient-to-br from-primary/20 to-secondary/20 rounded-3xl p-8 text-center">
+                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-white shadow-lg flex items-center justify-center">
+                  <span className="text-4xl">🎉</span>
+                </div>
+                <h3 className="font-display text-xl font-bold mb-2">
+                  {language === 'en' ? 'One Box = Complete Party' : 'एक बॉक्स = पूरी पार्टी'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'en' 
+                    ? 'Everything you need, nothing you don\'t'
+                    : 'जो चाहिए सब कुछ, जो नहीं चाहिए कुछ भी नहीं'}
+                </p>
+              </div>
+              
+              {/* Floating elements */}
+              <div className="absolute -top-4 -right-4 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg">
+                <span className="text-sm">⭐</span>
+              </div>
+              <div className="absolute -bottom-4 -left-4 w-6 h-6 bg-pink-400 rounded-full flex items-center justify-center shadow-lg">
+                <span className="text-xs">🎈</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Why We Started */}
-      <section className="py-8 px-4">
-        <div className="container-custom max-w-lg mx-auto">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
-            <Clock className="h-4 w-4" />
-            <span>THE OLD WAY</span>
+      {/* The Problem */}
+      <section className="py-12 px-4 bg-muted/30">
+        <div className="container-custom max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1 rounded-full text-sm font-medium mb-4">
+              <Clock className="h-4 w-4" />
+              {language === 'en' ? 'The Old Way' : 'पुराना तरीका'}
+            </div>
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
+              {language === 'en' ? 'The Stress of Celebration Planning' : 'जश्न प्लान करने का तनाव'}
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              {language === 'en' 
+                ? 'Before GleePack, this was every family\'s reality...'
+                : 'GleePack से पहले, यह हर परिवार की हकीकत थी...'}
+            </p>
           </div>
-          <h2 className="font-display text-2xl font-bold mb-6">
-            {language === 'en' ? 'Why we started' : 'हमने क्यों शुरू किया'}
-          </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {problems.map((problem, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden bg-muted/30">
-                <div className="h-24 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+              <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
                   {problem.icon}
                 </div>
-                <div className="p-3">
-                  <h4 className="font-semibold text-sm mb-1">{problem.title}</h4>
-                  <p className="text-xs text-muted-foreground">{problem.desc}</p>
-                </div>
+                <h3 className="font-semibold text-lg mb-2">{problem.title}</h3>
+                <p className="text-muted-foreground text-sm">{problem.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* The GleePack Promise */}
-      <section className="py-8 px-4">
-        <div className="container-custom max-w-5xl mx-auto">
-          <div className="flex items-center gap-2 text-secondary text-sm mb-2">
-            <Sparkles className="h-4 w-4" />
-            <span>THE NEW WAY</span>
+      {/* The Solution */}
+      <section className="py-12 px-4">
+        <div className="container-custom max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium mb-4">
+              <Sparkles className="h-4 w-4" />
+              {language === 'en' ? 'The New Way' : 'नया तरीका'}
+            </div>
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
+              {language === 'en' ? 'The GleePack Difference' : 'GleePack का अंतर'}
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              {language === 'en' 
+                ? 'We\'ve reimagined celebration planning to be joyful, not stressful.'
+                : 'हमने जश्न प्लानिंग को तनावपूर्ण नहीं बल्कि आनंददायक बनाने के लिए नया रूप दिया है।'}
+            </p>
           </div>
-          <h2 className="font-display text-2xl font-bold mb-6">
-            {language === 'en' ? 'The GleePack Promise' : 'GleePack का वादा'}
-          </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {promises.map((promise, i) => (
-              <div key={i} className="card-festive p-4 flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+              <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
                   {promise.icon}
                 </div>
-                <div>
-                  <h4 className="font-semibold mb-1">{promise.title}</h4>
-                  <p className="text-sm text-muted-foreground">{promise.desc}</p>
-                </div>
+                <h3 className="font-semibold text-lg mb-3">{promise.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{promise.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* What's Inside the Box */}
-      <section className="py-8 px-4">
-        <div className="container-custom max-w-5xl mx-auto">
-          <h2 className="font-display text-xl font-bold mb-6 flex items-center gap-2">
-            📦 {language === 'en' ? "What's inside the box?" : 'बॉक्स में क्या है?'}
-          </h2>
+      {/* What's Inside */}
+      <section className="py-12 px-4 bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div className="container-custom max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 flex items-center justify-center gap-3">
+              <span className="text-4xl">📦</span>
+              {language === 'en' ? "What's Inside Every Kit?" : 'हर किट में क्या है?'}
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              {language === 'en' 
+                ? 'Curated with love, delivered with care. Everything you need for a perfect celebration.'
+                : 'प्यार से चुना गया, देखभाल से पहुंचाया गया। परफेक्ट जश्न के लिए आपको जो कुछ भी चाहिए।'}
+            </p>
+          </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {boxContents.map((item, i) => (
-              <div key={i} className="card-festive p-6 text-center">
-                <div className="text-secondary mb-3">{item.icon}</div>
+              <div key={i} className="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100 hover:shadow-md transition-all hover:scale-105">
+                <div className="text-primary mb-3 flex justify-center">{item.icon}</div>
                 <p className="font-medium text-sm">{item.label}</p>
               </div>
             ))}
@@ -153,44 +248,80 @@ const About = () => {
         </div>
       </section>
 
-      {/* Founders Quote */}
-      <section className="py-8 px-4">
-        <div className="container-custom max-w-lg mx-auto">
-          <div className="rounded-3xl bg-gradient-to-br from-amber-50 to-orange-50 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
-                <span className="text-2xl">👫</span>
+      {/* Founders Story */}
+      <section className="py-12 px-4">
+        <div className="container-custom max-w-4xl mx-auto">
+          <div className="bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 rounded-3xl p-8 md:p-12">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 bg-white/80 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
+                <Heart className="h-4 w-4" />
+                {language === 'en' ? 'From Our Family to Yours' : 'हमारे परिवार से आपके परिवार तक'}
               </div>
-              <div>
-                <h4 className="font-display font-semibold">{language === 'en' ? 'From the Founders' : 'संस्थापकों से'}</h4>
-                <p className="text-xs text-muted-foreground">Ravi & Meera</p>
-              </div>
+              <h2 className="font-display text-2xl md:text-3xl font-bold mb-4">
+                {language === 'en' ? 'Why We Started GleePack' : 'हमने GleePack क्यों शुरू किया'}
+              </h2>
             </div>
-            <p className="text-sm text-muted-foreground italic mb-4">
-              "{language === 'en' 
-                ? 'We started GleePack because every Indian family deserves a Pinterest-worthy party without the stress. We handpick every item so you can focus on making memories.' 
-                : 'हमने GleePack इसलिए शुरू किया क्योंकि हर भारतीय परिवार बिना तनाव के एक शानदार पार्टी का हकदार है। हम हर आइटम को खुद चुनते हैं ताकि आप यादें बनाने पर ध्यान दे सकें।'}"
-            </p>
-            <div className="flex gap-2">
-              <span className="inline-flex items-center px-3 py-1 bg-white rounded-full text-xs">
-                ✓ Made in India
-              </span>
-              <span className="inline-flex items-center px-3 py-1 bg-white rounded-full text-xs">
-                ✨ Sanitized
-              </span>
+            
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
+                    <span className="text-3xl">👨‍👩‍👧‍👦</span>
+                  </div>
+                  <div>
+                    <h3 className="font-display font-semibold text-lg">
+                      {language === 'en' ? 'Ravi & Priya Sharma' : 'रवि और प्रिया शर्मा'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'en' ? 'Parents & Founders' : 'माता-पिता और संस्थापक'}
+                    </p>
+                  </div>
+                </div>
+                
+                <blockquote className="text-muted-foreground italic text-lg leading-relaxed">
+                  "{language === 'en' 
+                    ? 'As parents, we know how stressful planning celebrations can be. Between work, traffic, and endless shopping - we lost the joy of celebrating. We created GleePack so no family has to go through what we did. Now, focus on memories, not logistics.'
+                    : 'माता-पिता के रूप में, हम जानते हैं कि जश्न प्लान करना कितना तनावपूर्ण हो सकता है। काम, ट्रैफिक और अंतहीन खरीदारी के बीच - हमें जश्न मनाने की खुशी खो गई। हमने GleePack इसलिए बनाया ताकि कोई भी परिवार हमारे जैसा न गुजरे। अब, लॉजिस्टिक्स पर नहीं बल्कि यादों पर ध्यान दें।'}"
+                </blockquote>
+                
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center px-3 py-1 bg-white rounded-full text-sm font-medium">
+                    ❤️ {language === 'en' ? 'Made with Love' : 'प्यार से बनाया गया'}
+                  </span>
+                  <span className="inline-flex items-center px-3 py-1 bg-white rounded-full text-sm font-medium">
+                    🇮🇳 {language === 'en' ? 'Made in India' : 'भारत में बनाया गया'}
+                  </span>
+                  <span className="inline-flex items-center px-3 py-1 bg-white rounded-full text-sm font-medium">
+                    ✨ {language === 'en' ? 'Quality Assured' : 'गुणवत्ता सुनिश्चित'}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="bg-white/50 rounded-2xl p-6">
+                <h4 className="font-display font-semibold text-lg mb-4 text-center">
+                  {language === 'en' ? 'Our Impact' : 'हमारा प्रभाव'}
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">{language === 'en' ? 'Happy Families' : 'खुश परिवार'}</span>
+                    <span className="font-bold text-primary">1000+</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">{language === 'en' ? 'Cities Served' : 'सेवित शहर'}</span>
+                    <span className="font-bold text-primary">50+</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">{language === 'en' ? 'Perfect Parties' : 'परफेक्ट पार्टीज'}</span>
+                    <span className="font-bold text-primary">5000+</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">{language === 'en' ? 'Customer Rating' : 'ग्राहक रेटिंग'}</span>
+                    <span className="font-bold text-primary">4.8⭐</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-8 px-4 pb-24">
-        <div className="container-custom max-w-lg mx-auto">
-          <Link to="/kits">
-            <Button className="w-full btn-primary rounded-full py-6 text-lg">
-              {language === 'en' ? 'Browse Kits' : 'किट देखें'} →
-            </Button>
-          </Link>
         </div>
       </section>
     </Layout>

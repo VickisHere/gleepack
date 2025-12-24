@@ -28,12 +28,12 @@ const translations: Record<string, Record<Language, string>> = {
 
   // Problem Section
   'problem.title': { en: 'The Problem We Solve', hi: 'हम कौन सी समस्या हल करते हैं' },
-  'problem.subtitle': { en: 'Planning a small event at home? Here\'s what you usually face:', hi: 'घर पर छोटा इवेंट प्लान कर रहे हैं? यही तो समस्या है:' },
-  'problem.shop1': { en: 'Balloon Shop', hi: 'गुब्बारे की दुकान' },
-  'problem.shop2': { en: 'Cake Shop', hi: 'केक की दुकान' },
-  'problem.shop3': { en: 'Decoration Shop', hi: 'डेकोरेशन की दुकान' },
-  'problem.shop4': { en: 'Cutlery Shop', hi: 'बर्तन की दुकान' },
-  'problem.result': { en: '4 shops, 4 bills, hours wasted, still unsure if you have everything!', hi: '4 दुकानें, 4 बिल, घंटों बर्बाद, फिर भी पक्का नहीं कि सब कुछ है!' },
+  'problem.subtitle': { en: 'Planning a celebration? Here\'s what everyone goes through:', hi: 'जश्न प्लान कर रहे हैं? यही सब से गुजरना पड़ता है:' },
+  'problem.shop1': { en: 'Running between multiple shops', hi: 'कई दुकानों के बीच भागदौड़' },
+  'problem.shop2': { en: 'Forgetting important items', hi: 'जरूरी चीजें भूल जाना' },
+  'problem.shop3': { en: 'Wasting hours in traffic & queues', hi: 'ट्रैफिक और कतारों में घंटे बर्बाद' },
+  'problem.shop4': { en: 'Last-minute shopping stress', hi: 'आखिरी समय की खरीदारी का तनाव' },
+  'problem.result': { en: 'Exhausted, frustrated, and still unsure if the celebration will be perfect!', hi: 'थक गए, परेशान हो गए, फिर भी पक्का नहीं कि जश्न परफेक्ट होगा!' },
 
   // Solution Section
   'solution.title': { en: 'GleePack Makes It Simple', hi: 'GleePack आसान बनाता है' },
@@ -43,9 +43,13 @@ const translations: Record<string, Record<Language, string>> = {
   // Kit Categories
   'kits.birthday': { en: 'Birthday', hi: 'जन्मदिन' },
   'kits.anniversary': { en: 'Anniversary', hi: 'सालगिरह' },
-  'kits.festival': { en: 'Festivals', hi: 'त्योहार' },
+  'kits.festival': { en: 'Puja', hi: 'पूजा' },
+  'kits.grandopening': { en: 'Grand Opening', hi: 'ग्रैंड ओपनिंग' },
+  'kits.babyshower': { en: 'Baby Shower', hi: 'बेबी शॉवर' },
+  'kits.custom': { en: 'Custom Kits', hi: 'कस्टम किट्स' },
   'kits.basic': { en: 'Basic', hi: 'बेसिक' },
   'kits.premium': { en: 'Premium', hi: 'प्रीमियम' },
+  'kits.gold': { en: 'Gold', hi: 'गोल्ड' },
   'kits.platinum': { en: 'Platinum', hi: 'प्लैटिनम' },
   'kits.viewAll': { en: 'View All Kits', hi: 'सभी किट्स देखें' },
   'kits.idealFor': { en: 'Ideal for', hi: 'के लिए आदर्श' },
@@ -54,6 +58,15 @@ const translations: Record<string, Record<Language, string>> = {
   'kits.addToCart': { en: 'Add to Cart', hi: 'कार्ट में जोड़ें' },
   'kits.bookNow': { en: 'Book Now', hi: 'अभी बुक करें' },
   'kits.completeBadge': { en: 'Complete Kit', hi: 'पूरी किट' },
+  'kits.customTitle': { en: 'Custom Event Kits', hi: 'कस्टम इवेंट किट्स' },
+  'kits.customDesc': { en: 'Design your perfect celebration kit tailored to your specific needs', hi: 'अपनी विशिष्ट आवश्यकताओं के अनुसार अपना परफेक्ट सेलिब्रेशन किट डिजाइन करें' },
+  'kits.customProcess': { en: 'How Custom Kits Work', hi: 'कस्टम किट्स कैसे काम करते हैं' },
+  'kits.customStep1': { en: 'Contact our team via WhatsApp', hi: 'WhatsApp के माध्यम से हमारी टीम से संपर्क करें' },
+  'kits.customStep2': { en: 'Share your event details and requirements', hi: 'अपने इवेंट का विवरण और आवश्यकताएं साझा करें' },
+  'kits.customStep3': { en: 'Our team will suggest items and finalize the list', hi: 'हमारी टीम आइटम सुझाएगी और सूची को अंतिम रूप देगी' },
+  'kits.customStep4': { en: 'Get final price and place your order', hi: 'अंतिम मूल्य प्राप्त करें और अपना ऑर्डर करें' },
+  'kits.customStep5': { en: 'Receive your custom kit at your doorstep', hi: 'अपने दरवाजे पर अपनी कस्टम किट प्राप्त करें' },
+  'kits.orderCustom': { en: 'Order Custom Kit', hi: 'कस्टम किट ऑर्डर करें' },
 
   // How It Works
   'how.title': { en: 'How GleePack Works', hi: 'GleePack कैसे काम करता है' },

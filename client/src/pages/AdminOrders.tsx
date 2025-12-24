@@ -110,6 +110,7 @@ export default function AdminOrders() {
               <th className="p-2">Customer</th>
               <th className="p-2">Items</th>
               <th className="p-2">Total</th>
+              <th className="p-2">Coupon</th>
               <th className="p-2">Payment</th>
               <th className="p-2">Status</th>
               <th className="p-2">Created</th>
@@ -137,10 +138,29 @@ export default function AdminOrders() {
                 </td>
                 <td className="p-2 align-top">${o.total || o.amount || 0}</td>
                 <td className="p-2 align-top">
+                  {o.coupon ? (
+                    <div>
+                      <div className="font-medium">{o.coupon.code}</div>
+                      <div className="text-xs text-gray-600">Discount: ${o.coupon.discountAmount}</div>
+                    </div>
+                  ) : (
+                    <span className="text-gray-500">None</span>
+                  )}
+                </td>
+                <td className="p-2 align-top">
                   <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded ${o.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      o.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
                       {o.paymentStatus || 'unpaid'}
                     </span>
+                    <div className={`text-xs px-2 py-1 rounded border ${
+                      (o.paymentMethod === 'COD' || (!o.paymentMethod && o.paymentStatus !== 'paid')) 
+                        ? 'bg-orange-50 text-orange-700 border-orange-200' 
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
+                      {(o.paymentMethod === 'COD' || (!o.paymentMethod && o.paymentStatus !== 'paid')) ? 'COD' : 'Online'}
+                    </div>
                     <Button size="icon" variant="ghost" onClick={() => togglePayment(o._id, o.paymentStatus)} title={o.paymentStatus === 'paid' ? 'Mark unpaid' : 'Mark paid'}>
                       {o.paymentStatus === 'paid' ? <Check className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
                     </Button>
@@ -195,6 +215,18 @@ export default function AdminOrders() {
                     <li key={i}>{it.name} x{it.quantity} — ${it.price}</li>
                   ))}
                 </ul>
+              </div>
+              <div><strong>Coupon:</strong>
+                {selected.coupon ? (
+                  <div className="mt-1">
+                    <div>Code: {selected.coupon.code}</div>
+                    <div>Type: {selected.coupon.type} ({selected.coupon.value}{selected.coupon.type === 'percentage' ? '%' : '$'})</div>
+                    <div>Discount: ${selected.coupon.discountAmount}</div>
+                    {selected.coupon.commissionAmount > 0 && <div>Commission: ${selected.coupon.commissionAmount}</div>}
+                  </div>
+                ) : (
+                  'None'
+                )}
               </div>
             </div>
           ) : null}

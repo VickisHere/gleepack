@@ -23,6 +23,21 @@ function requireAdmin(req, res) {
   }
 }
 
+function requireInventoryManager(req, res) {
+  const auth = req.headers.authorization;
+  if (!auth) return false;
+  const parts = auth.split(' ');
+  if (parts.length !== 2) return false;
+  const token = parts[1];
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload && (payload.role === 'admin' || payload.role === 'gim')) return true;
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Public: list products
 router.get('/', async (req, res) => {
   try {
@@ -71,20 +86,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Admin: create product
+// Admin/GIM: create product
 router.post('/', async (req, res) => {
   try {
-    // const isAdmin = requireAdmin(req, res);
-    // log incoming attempt for debugging
-    // console.debug('POST /api/products attempt', { adminHeader: req.headers.authorization, isAdmin: isAdmin, env: process.env.NODE_ENV });
-    // if (!isAdmin) {
-    //   // allow creation in non-production for local debugging with a warning
-    //   if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_PRODUCT_CREATE === '1') {
-    //     console.warn('Dev bypass: creating product without admin auth');
-    //   } else {
-    //     return res.status(403).json({ error: 'Admin access required' });
-    //   }
-    // }
+    if (!requireInventoryManager(req, res)) return res.status(403).json({ error: 'Inventory Manager access required' });
     const body = req.body || {};
     const db = await connect();
     // ensure id exists
@@ -99,10 +104,10 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Admin: update product
+// Admin/GIM: update product
 router.patch('/:id', async (req, res) => {
   try {
-    if (!requireAdmin(req, res)) return res.status(403).json({ error: 'Admin access required' });
+    if (!requireInventoryManager(req, res)) return res.status(403).json({ error: 'Inventory Manager access required' });
     const db = await connect();
     const id = req.params.id;
     const update = { $set: req.body || {} };
@@ -138,10 +143,10 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// Admin: delete product
+// Admin/GIM: delete product
 router.delete('/:id', async (req, res) => {
   try {
-    if (!requireAdmin(req, res)) return res.status(403).json({ error: 'Admin access required' });
+    if (!requireInventoryManager(req, res)) return res.status(403).json({ error: 'Inventory Manager access required' });
     const db = await connect();
     const id = req.params.id;
     let result;
@@ -176,10 +181,10 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Admin: upload image for product (accepts JSON { filename, data }) where data is a data URL
+// Admin/GIM: upload image for product (accepts JSON { filename, data }) where data is a data URL
 router.post('/:id/image', async (req, res) => {
   try {
-    if (!requireAdmin(req, res)) return res.status(403).json({ error: 'Admin access required' });
+    if (!requireInventoryManager(req, res)) return res.status(403).json({ error: 'Inventory Manager access required' });
     const id = req.params.id;
     const body = req.body || {};
     const { filename, data } = body;

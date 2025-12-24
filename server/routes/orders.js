@@ -43,8 +43,8 @@ function deliveryMiddleware(req, res, next) {
   return res.status(403).json({ error: 'Delivery or Admin access required' });
 }
 
-// Create order (allow guest orders if no Authorization provided)
-router.post('/', async (req, res, next) => {
+// Create order (authentication required)
+router.post('/', authMiddleware, async (req, res, next) => {
   try {
     let db;
     try {
@@ -54,51 +54,179 @@ router.post('/', async (req, res, next) => {
     }
 
     const ObjectId = require('mongodb').ObjectId;
-    // Try to read token if provided (optional)
-    let userPayload = null;
-    const auth = req.headers.authorization;
-    if (auth) {
-      const parts = auth.split(' ');
-      if (parts.length === 2) {
-        try {
-          const jwt = require('jsonwebtoken');
-          userPayload = jwt.verify(parts[1], JWT_SECRET);
-        } catch (e) {
-          // ignore invalid token, treat as guest
-          userPayload = null;
-        }
-      }
+    
+    // User is authenticated from authMiddleware
+    const userId = req.user.sub;
+    let userSnapshot = { id: userId, email: req.user.email, name: req.user.name || null };
+    
+    // Get full user details from database
+    if (ObjectId.isValid(userId)) {
+      const usr = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+      if (usr) userSnapshot = { id: String(usr._id), email: usr.email, name: usr.name || null };
     }
 
-    let userSnapshot = { id: null, email: null, name: null };
-    if (userPayload && userPayload.sub) {
-      const userId = userPayload.sub;
-      if (ObjectId.isValid(userId)) {
-        const usr = await db.collection('users').findOne({ _id: new ObjectId(userId) });
-        if (usr) userSnapshot = { id: String(usr._id), email: usr.email, name: usr.name || null };
-      } else {
-        userSnapshot = { id: userId, email: userPayload.email || null, name: null };
+    // Handle coupon validation and application
+    let couponData = null;
+    let discountAmount = 0;
+    let commissionAmount = 0;
+    let influencerId = null;
+
+    if (req.body.couponCode && userSnapshot.id) {
+      try {
+        const couponCode = req.body.couponCode.toUpperCase();
+        const orderValue = req.body.totalAmount || 0;
+
+        // Find coupon
+        const coupon = await db.collection('coupons').findOne({ code: couponCode });
+        if (!coupon) {
+          return res.status(400).json({ error: 'Invalid coupon code' });
+        }
+
+        // Check if active
+        if (!coupon.isActive) {
+          return res.status(400).json({ error: 'Coupon is inactive' });
+        }
+
+        // Check dates
+        const now = new Date();
+        if (now < coupon.startDate || now > coupon.expiryDate) {
+          return res.status(400).json({ error: 'Coupon is expired or not yet valid' });
+        }
+
+        // Check total usage
+        if (coupon.totalUsageLimit && coupon.usageCount >= coupon.totalUsageLimit) {
+          return res.status(400).json({ error: 'Coupon usage limit exceeded' });
+        }
+
+        // Check min order value
+        if (coupon.minOrderValue && orderValue < coupon.minOrderValue) {
+          return res.status(400).json({ error: 'Order value does not meet minimum requirement' });
+        }
+
+        // Check user assignment for user-specific coupons
+        if (coupon.couponType === 'user-specific') {
+          const assigned = await db.collection('user_coupons').findOne({
+            couponId: coupon._id,
+            userId: new ObjectId(userSnapshot.id)
+          });
+          if (!assigned) {
+            return res.status(403).json({ error: 'You are not eligible for this coupon' });
+          }
+
+          // Check per user limit
+          if (assigned.usageCount >= coupon.perUserLimit) {
+            return res.status(400).json({ error: 'You have exceeded the usage limit for this coupon' });
+          }
+        }
+
+        // Calculate discount
+        const value = coupon.value;
+        if (coupon.type === 'flat') {
+          discountAmount = value;
+        } else if (coupon.type === 'percentage') {
+          discountAmount = (orderValue * value) / 100;
+        }
+
+        // Apply max discount
+        if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
+          discountAmount = coupon.maxDiscount;
+        }
+
+        // Ensure discount doesn't exceed order value
+        if (discountAmount > orderValue) {
+          discountAmount = orderValue;
+        }
+
+        // Calculate commission for influencer coupons
+        if (coupon.isInfluencerCoupon && coupon.influencerId && coupon.commissionPercentage) {
+          commissionAmount = (discountAmount * coupon.commissionPercentage) / 100;
+          influencerId = coupon.influencerId;
+        }
+
+        couponData = {
+          _id: coupon._id,
+          code: coupon.code,
+          type: coupon.type,
+          value: value,
+          couponType: coupon.couponType,
+          discountAmount: discountAmount,
+          commissionAmount: commissionAmount,
+          influencerId: influencerId
+        };
+
+      } catch (couponError) {
+        console.error('Coupon validation error:', couponError);
+        return res.status(400).json({ error: 'Invalid coupon' });
       }
     }
 
     // Determine payment method and default payment status
-      const incomingPaymentMethod = req.body.paymentMethod || (req.body.payment && req.body.payment.method) || null;
-      const paymentMethod = incomingPaymentMethod ? String(incomingPaymentMethod).toLowerCase() : null;
+      const incomingPaymentMethod = req.body.paymentMethod || (req.body.payment && req.body.payment.method) || req.body.payment || null;
+      let paymentMethod = incomingPaymentMethod ? String(incomingPaymentMethod).toLowerCase() : null;
+      
       // treat common online methods as paid automatically, COD as unpaid
       const onlineMethods = ['online', 'upi', 'card', 'wallet', 'netbanking', 'razorpay', 'stripe'];
       const isOnline = paymentMethod && onlineMethods.some((m) => paymentMethod.includes(m));
       const defaultPaymentStatus = isOnline ? 'paid' : 'unpaid';
+      
+      // Normalize payment method names for display
+      if (paymentMethod === 'cod') {
+        paymentMethod = 'COD';
+      } else {
+        paymentMethod = 'Online';
+      }
       const now = new Date();
       const paymentFields = {
-        paymentMethod: incomingPaymentMethod || null,
+        paymentMethod: paymentMethod,
         paymentStatus: defaultPaymentStatus,
         paymentUpdatedAt: now,
       };
       if (defaultPaymentStatus === 'paid') paymentFields.paidAt = now;
 
-      const order = Object.assign({}, req.body, paymentFields, { userId: userSnapshot.id, userEmail: userSnapshot.email, userName: userSnapshot.name, createdAt: now, status: 'received', statusHistory: [{ status: 'received', by: userSnapshot.email || userSnapshot.id || 'guest', at: now }] });
+      const order = Object.assign({}, req.body, paymentFields, {
+        userId: userSnapshot.id,
+        userEmail: userSnapshot.email,
+        userName: userSnapshot.name,
+        createdAt: now,
+        status: 'received',
+        statusHistory: [{ status: 'received', by: userSnapshot.email || userSnapshot.id || 'guest', at: now }],
+        coupon: couponData,
+        discountAmount: discountAmount,
+        commissionAmount: commissionAmount,
+        influencerId: influencerId
+      });
+
     const result = await db.collection('orders').insertOne(order);
     const saved = await db.collection('orders').findOne({ _id: result.insertedId });
+
+    // Update coupon usage and influencer stats
+    if (couponData) {
+      // Update coupon usage
+      await db.collection('coupons').updateOne(
+        { _id: couponData._id },
+        { $inc: { usageCount: 1, totalDiscountGiven: discountAmount } }
+      );
+
+      // Update user coupon usage for user-specific coupons
+      if (couponData.couponType === 'user-specific' && userSnapshot.id) {
+        await db.collection('user_coupons').updateOne(
+          { couponId: couponData._id, userId: new ObjectId(userSnapshot.id) },
+          { $inc: { usageCount: 1 } }
+        );
+      }
+
+      // Update influencer stats
+      if (influencerId) {
+        await db.collection('influencers').updateOne(
+          { _id: influencerId },
+          {
+            $inc: {
+              totalOrders: 1
+            }
+          }
+        );
+      }
+    }
 
     // Save address to user profile if logged in
     if (userSnapshot.id && req.body.contact) {
@@ -165,7 +293,18 @@ router.get('/all', authMiddleware, deliveryMiddleware, async (req, res, next) =>
     }
     const q = {};
     const orders = await db.collection('orders').find(q).sort({ createdAt: -1 }).toArray();
-    return res.json(orders);
+    // Ensure paymentMethod is set for display
+    const processedOrders = orders.map(order => {
+      if (!order.paymentMethod) {
+        if (order.payment && Object.keys(order.payment).some(k => k.includes('razorpay'))) {
+          order.paymentMethod = 'Online';
+        } else {
+          order.paymentMethod = 'COD';
+        }
+      }
+      return order;
+    });
+    return res.json(processedOrders);
   } catch (err) {
     next(err);
   }

@@ -1,27 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff } from 'lucide-react';
 
 interface AuthModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const auth = useAuthContext();
+  const auth = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,7 +50,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
       } else {
         await auth.register(email, password, name);
       }
-      onOpenChange(false);
+      onClose();
       navigate('/');
     } catch (err: any) {
       setError(err.message || `${activeTab === 'login' ? 'Login' : 'Registration'} failed`);
@@ -74,7 +72,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl font-bold">
@@ -108,24 +106,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Password</label>
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
+                    <Input
+                      type="password"
+                      placeholder="Your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
                   </div>
                   {error && <div className="text-sm text-destructive">{error}</div>}
                   <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
@@ -203,24 +190,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Password</label>
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Create a password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
+                    <Input
+                      type="password"
+                      placeholder="Create a password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
                   </div>
                   {error && <div className="text-sm text-destructive">{error}</div>}
                   <Button type="submit" className="w-full" size="lg" disabled={isLoading}>

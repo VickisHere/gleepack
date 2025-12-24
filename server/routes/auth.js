@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
+const passport = require('passport');
 const { connect } = require('../lib/mongoClient');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'replace_this_secret_in_env';
@@ -54,6 +55,22 @@ router.post('/register', async (req, res, next) => {
     const userId = result.insertedId;
     const user = await db.collection('users').findOne({ _id: userId });
     const token = jwt.sign({ sub: String(user._id), email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+
+    // Assign welcome coupon
+    try {
+      const welcomeCoupon = await db.collection('coupons').findOne({ code: 'WELCOME' });
+      if (welcomeCoupon) {
+        await db.collection('user_coupons').insertOne({
+          couponId: welcomeCoupon._id,
+          userId: userId,
+          usageCount: 0,
+          assignedAt: new Date()
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to assign welcome coupon', e);
+    }
+
     return res.json({ user: { id: String(user._id), email: user.email, name: user.name, role: user.role }, token });
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Internal Server Error' });
@@ -102,8 +119,34 @@ router.post('/login', async (req, res, next) => {
     }
   } catch (err) {
     console.error('Login error', err && err.stack ? err.stack : err);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 });
+
+// Google OAuth routes
+router.get('/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get('/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  async (req, res) => {
+    try {
+      const user = req.user;
+      const token = jwt.sign({ sub: String(user._id), email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+      
+      // Redirect to frontend with token
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      res.redirect(`${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
+        id: String(user._id),
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }))}`);
+    } catch (err) {
+      console.error('Google callback error:', err);
+      res.redirect('/login?error=auth_failed');
+    }
+  }
+);
 
 module.exports = router;

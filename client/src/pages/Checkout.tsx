@@ -14,7 +14,8 @@ const Checkout = () => {
   const { language, t } = useLanguage();
   const { items, totalPrice, clearCart } = useCart();
   const navigate = useNavigate();
-  
+  const { apiFetch, token, user, isAuthenticated } = useAuthContext();
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -25,6 +26,7 @@ const Checkout = () => {
     pincode: '',
     district: '',
     date: '',
+    time: '',
     payment: 'cod'
   });
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
@@ -32,7 +34,32 @@ const Checkout = () => {
   const [showNewAddress, setShowNewAddress] = useState(false);
   const [showAddressOptions, setShowAddressOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { apiFetch, token, user } = useAuthContext();
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [discount, setDiscount] = useState(0);
+  const [finalTotal, setFinalTotal] = useState(totalPrice);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+
+  // Require authentication for checkout
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast.error(language === 'en' ? 'Please login to place an order' : 'ऑर्डर देने के लिए कृपया लॉगिन करें');
+      navigate('/login');
+      return;
+    }
+  }, [isAuthenticated, navigate, language]);
+
+  // Redirect if no items
+  useEffect(() => {
+    if (items.length === 0) {
+      navigate('/kits');
+      return;
+    }
+  }, [items, navigate]);
+
+  useEffect(() => {
+    setFinalTotal(totalPrice - discount);
+  }, [totalPrice, discount]);
 
   useEffect(() => {
     if (token && user) {
@@ -53,6 +80,28 @@ const Checkout = () => {
       })();
     }
   }, [token, user, apiFetch]);
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    try {
+      const res = await apiFetch('/api/coupons/validate', {
+        method: 'POST',
+        body: JSON.stringify({ code: couponCode, orderValue: totalPrice })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAppliedCoupon(data.coupon);
+        setDiscount(data.discount);
+        toast.success('Coupon applied successfully!');
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Invalid coupon');
+      }
+    } catch (e) {
+      console.error('Failed to apply coupon', e);
+      toast.error('Failed to apply coupon');
+    }
+  };
 
   const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const pin = e.target.value;
@@ -80,8 +129,27 @@ const Checkout = () => {
     
     const currentAddress = selectedAddress !== null ? savedAddresses[parseInt(selectedAddress)] : formData;
     
-    if (!formData.name || !formData.phone || !currentAddress.flatNo || !currentAddress.area || !formData.date) {
+    if (!formData.name || !formData.phone || !currentAddress?.flatNo || !currentAddress?.area || !formData.date || !formData.time) {
       toast.error(language === 'en' ? 'Please fill all required fields' : 'कृपया सभी आवश्यक फ़ील्ड भरें');
+      return;
+    }
+
+    // Check if booking is at least 20 minutes before event time
+    const eventDateTime = new Date(`${formData.date}T${formData.time}`);
+    const now = new Date();
+    const timeDiff = eventDateTime.getTime() - now.getTime();
+    const minutesDiff = timeDiff / (1000 * 60);
+    
+    if (minutesDiff < 20) {
+      toast.error(language === 'en' ? 'Bookings must be made at least 20 minutes before the event time' : 'बुकिंग को इवेंट समय से कम से कम 20 मिनट पहले करना होगा');
+      return;
+    }
+
+    // Check if district is Saharsa
+    const district = currentAddress?.district || formData.district || '';
+    if (district.toLowerCase() !== 'saharsa') {
+      // Don't allow order, but don't show dialog - waiting list is shown below
+      toast.error(language === 'en' ? 'Delivery not available in your area. Please join the waiting list below.' : 'आपके क्षेत्र में डिलीवरी उपलब्ध नहीं है। कृपया नीचे दी गई वेटिंग लिस्ट में शामिल हों।');
       return;
     }
 
@@ -100,8 +168,13 @@ const Checkout = () => {
           district: currentAddress.district
         },
         items,
-        total: totalPrice,
+        total: finalTotal,
+        totalAmount: totalPrice,
+        discount: discount,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        coupon: appliedCoupon ? { code: appliedCoupon.code, discount: discount } : null,
         deliveryDate: formData.date,
+        deliveryTime: formData.time,
         payment: formData.payment,
       };
 
@@ -122,6 +195,18 @@ const Checkout = () => {
         const saved = await res.json();
         clearCart();
         toast.success(t('checkout.success'));
+        
+        // Apply coupon if used
+        if (appliedCoupon) {
+          try {
+            await apiFetch('/api/coupons/apply', {
+              method: 'POST',
+              body: JSON.stringify({ code: appliedCoupon.code, orderId: saved._id, discount: discount })
+            });
+          } catch (e) {
+            console.error('Failed to apply coupon usage', e);
+          }
+        }
         
         // Save address if new
         if (selectedAddress === null && token) {
@@ -232,6 +317,70 @@ const Checkout = () => {
     }
   };
 
+  const handleWaitingSubmit = async () => {
+    const addressData = selectedAddress !== null ? savedAddresses[parseInt(selectedAddress)] : formData;
+    const district = addressData?.district || formData.district || '';
+
+    if (!district) {
+      toast.error(language === 'en' ? 'Please enter your district first' : 'कृपया पहले अपना जिला दर्ज करें');
+      return;
+    }
+
+    if (!whatsappNumber.trim()) {
+      toast.error(language === 'en' ? 'Please enter WhatsApp number' : 'कृपया व्हाट्सएप नंबर दर्ज करें');
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/api/waiting-customers', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: formData.name || 'Anonymous',
+          phone: formData.phone || '',
+          whatsappNumber: whatsappNumber,
+          district: district,
+          address: `${addressData?.flatNo || formData.flatNo || ''}, ${addressData?.area || formData.area || ''}${addressData?.landmark ? ', ' + addressData.landmark : ''}`.trim() || '',
+          items: items
+        })
+      });
+      if (res.ok) {
+        toast.success(language === 'en' ? 'Thank you! We will notify you when delivery becomes available in your area.' : 'धन्यवाद! आपके क्षेत्र में डिलीवरी उपलब्ध होने पर हम आपको सूचित करेंगे।');
+        clearCart();
+        navigate('/');
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to submit');
+      }
+    } catch (e) {
+      console.error('Failed to submit waiting customer', e);
+      toast.error('Failed to submit');
+    }
+  };
+
+  const isFormValid = () => {
+    const currentAddress = selectedAddress !== null ? savedAddresses[parseInt(selectedAddress)] : formData;
+    const district = currentAddress?.district || formData.district || '';
+    
+    // Check if all required fields are filled
+    const hasRequiredFields = formData.name &&
+      formData.phone &&
+      currentAddress?.flatNo &&
+      currentAddress?.area &&
+      formData.date &&
+      formData.time &&
+      district.toLowerCase() === 'saharsa';
+    
+    if (!hasRequiredFields) return false;
+    
+    // Check if booking is at least 20 minutes before event time
+    const eventDateTime = new Date(`${formData.date}T${formData.time}`);
+    const now = new Date();
+    const timeDiff = eventDateTime.getTime() - now.getTime();
+    const minutesDiff = timeDiff / (1000 * 60);
+    
+    return minutesDiff >= 20;
+  };
+
   if (items.length === 0) {
     navigate('/cart');
     return null;
@@ -257,7 +406,20 @@ const Checkout = () => {
                   </div>
                   <div>
                     <Label htmlFor="phone">{language === 'en' ? 'Phone Number' : 'फ़ोन नंबर'} *</Label>
-                    <Input id="phone" type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
+                    <Input 
+                      id="phone" 
+                      type="tel" 
+                      value={formData.phone} 
+                      onChange={e => {
+                        const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+                        if (value.length <= 10) {
+                          setFormData({...formData, phone: value});
+                        }
+                      }} 
+                      required 
+                      maxLength={10}
+                      pattern="[0-9]{10}"
+                    />
                   </div>
                 </div>
               </div>
@@ -405,18 +567,53 @@ const Checkout = () => {
                     </>
                   )}
                   <div className="bg-secondary/20 text-sm p-3 rounded-lg">
-                    📍 {language === 'en' ? 'Delivery available in your area' : 'आपके क्षेत्र में डिलीवरी उपलब्ध'}
+                    {(() => {
+                      const currentAddress = selectedAddress !== null ? savedAddresses[parseInt(selectedAddress)] : formData;
+                      const district = currentAddress?.district || formData.district || '';
+                      if (district && district.toLowerCase() !== 'saharsa') {
+                        return language === 'en' ? 'Available soon, stay tuned!' : 'जल्द ही उपलब्ध, बने रहें!';
+                      } else if (district && district.toLowerCase() === 'saharsa') {
+                        return language === 'en' ? 'Delivery available in your area!' : 'आपके क्षेत्र में डिलीवरी उपलब्ध!';
+                      } else {
+                        return language === 'en' ? 'Please enter your delivery area' : 'कृपया अपना डिलीवरी क्षेत्र दर्ज करें';
+                      }
+                    })()}
                   </div>
                 </div>
               </div>
 
-              {/* Delivery Date */}
+              {/* Delivery Date & Time */}
               <div className="card-festive p-6">
                 <h3 className="font-display text-lg font-semibold mb-4 flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  {t('checkout.date')}
+                  {language === 'en' ? 'Event Date & Time' : 'इवेंट तारीख और समय'}
                 </h3>
-                <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} min={new Date().toISOString().split('T')[0]} required />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="date" className="text-sm font-medium">{language === 'en' ? 'Date' : 'तारीख'} *</Label>
+                    <Input 
+                      id="date" 
+                      type="date" 
+                      value={formData.date} 
+                      onChange={e => setFormData({...formData, date: e.target.value})} 
+                      min={new Date().toISOString().split('T')[0]} 
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="time" className="text-sm font-medium">{language === 'en' ? 'Time' : 'समय'} *</Label>
+                    <Input 
+                      id="time" 
+                      type="time" 
+                      value={formData.time} 
+                      onChange={e => setFormData({...formData, time: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {language === 'en' ? 'Bookings must be made at least 20 minutes before the event time' : 'बुकिंग को इवेंट समय से कम से कम 20 मिनट पहले करना होगा'}
+                </p>
               </div>
 
               {/* Payment */}
@@ -448,22 +645,104 @@ const Checkout = () => {
                 <div className="space-y-3 border-b border-border pb-4 mb-4">
                   {items.map(item => (
                     <div key={item.id} className="flex justify-between text-sm">
-                      <span>{language === 'en' ? item.name : item.nameHi} x{item.quantity}</span>
-                      <span>₹{(item.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity}</span>
+                      <span>{item.name} x{item.quantity}</span>
+                      <span>₹{((item.price || 0) + ((item.addons || []).reduce((s, a) => s + (a.price || 0), 0))) * item.quantity}</span>
                     </div>
                   ))}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Delivery</span>
                     <span className="text-green-600">FREE</span>
                   </div>
+                  {/* Coupon Section */}
+                  <div className="pt-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder={language === 'en' ? 'Enter coupon code' : 'कूपन कोड दर्ज करें'}
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        className="flex-1"
+                      />
+                      <Button type="button" onClick={applyCoupon} variant="outline" size="sm">
+                        {language === 'en' ? 'Apply' : 'लागू करें'}
+                      </Button>
+                    </div>
+                    {appliedCoupon && (
+                      <div className="text-sm text-green-600 mt-1">
+                        {appliedCoupon.name} applied! Saved ₹{discount}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex justify-between text-xl font-bold mb-6">
-                  <span>{t('cart.total')}</span>
-                  <span className="text-primary">₹{totalPrice}</span>
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal</span>
+                    <span>₹{totalPrice}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Discount ({appliedCoupon?.code})</span>
+                      <span>-₹{discount}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-xl font-bold">
+                    <span>{t('cart.total')}</span>
+                    <span className="text-primary">₹{finalTotal}</span>
+                  </div>
                 </div>
-                <Button type="submit" size="lg" className="w-full btn-festive" disabled={isSubmitting}>
+                <Button type="submit" size="lg" className="w-full btn-festive" disabled={isSubmitting || !isFormValid()}>
                   {isSubmitting ? (language === 'en' ? 'Placing Order...' : 'ऑर्डर हो रहा है...') : t('checkout.place')}
                 </Button>
+
+                {/* Waiting List Section - shown when district is filled but not Saharsa */}
+                {(() => {
+                  const currentAddress = selectedAddress !== null ? savedAddresses[parseInt(selectedAddress)] : formData;
+                  const district = currentAddress?.district || formData.district || '';
+                  if (district && district.toLowerCase() !== 'saharsa') {
+                    return (
+                      <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                        <h3 className="font-semibold text-orange-800 mb-2">
+                          {language === 'en' ? '🚀 Join Waiting List' : '🚀 वेटिंग लिस्ट में शामिल हों'}
+                        </h3>
+                        <p className="text-sm text-orange-700 mb-4">
+                          {language === 'en' 
+                            ? 'Delivery is currently available in select areas. Join our waiting list and we\'ll notify you when we expand to your area!' 
+                            : 'वर्तमान में डिलीवरी चुनिंदा क्षेत्रों में उपलब्ध है। हमारी वेटिंग लिस्ट में शामिल हों और जब हम आपके क्षेत्र में विस्तार करेंगे तो हम आपको सूचित करेंगे!'
+                          }
+                        </p>
+                        <div className="space-y-3">
+                          <div>
+                            <Label htmlFor="waiting-whatsapp" className="text-sm font-medium">
+                              {language === 'en' ? 'WhatsApp Number' : 'व्हाट्सएप नंबर'} *
+                            </Label>
+                            <Input 
+                              id="waiting-whatsapp" 
+                              type="tel" 
+                              value={whatsappNumber} 
+                              onChange={e => {
+                                const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+                                if (value.length <= 10) {
+                                  setWhatsappNumber(value);
+                                }
+                              }} 
+                              placeholder={language === 'en' ? 'Enter your WhatsApp number' : 'अपना व्हाट्सएप नंबर दर्ज करें'}
+                              className="mt-1"
+                              maxLength={10}
+                              pattern="[0-9]{10}"
+                            />
+                          </div>
+                          <Button 
+                            onClick={handleWaitingSubmit} 
+                            className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                            disabled={!whatsappNumber.trim()}
+                          >
+                            {language === 'en' ? 'Join Waiting List' : 'वेटिंग लिस्ट में शामिल हों'}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </form>

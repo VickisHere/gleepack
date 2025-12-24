@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingCart, Globe } from 'lucide-react';
+import { ShoppingCart, Globe, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
@@ -56,114 +56,169 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-display text-xl font-bold">G</span>
-            </div>
-            <span className="font-display text-xl md:text-2xl 2xl:text-3xl font-bold text-foreground">
-              Glee<span className="text-secondary">Pack</span>
-            </span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive(link.path)
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-foreground hover:bg-muted'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {/* Language Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
-              className="relative"
-            >
-              <Globe className="h-5 w-5" />
-              <span className="absolute -bottom-1 -right-1 text-[10px] font-bold bg-secondary text-secondary-foreground rounded px-1">
-                {language === 'en' ? 'हि' : 'EN'}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Different header layouts for role-based vs regular users */}
+        {user?.role === 'admin' || user?.role === 'dba' || user?.role === 'delivery' || user?.role === 'influencer' || user?.role === 'gim' ? (
+          /* Role-based user header: Logo left, Nav, Profile right */
+          <div className="flex items-center justify-between h-16 md:h-18 lg:h-20">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-display text-lg md:text-xl font-bold">G</span>
+              </div>
+              <span className="font-display text-lg md:text-lg lg:text-2xl xl:text-3xl font-bold text-foreground">
+                Glee<span className="text-secondary">Pack</span>
               </span>
-            </Button>
-
-            {/* Cart */}
-            <Link to="/cart">
-              <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="h-5 w-5" />
-                {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-secondary text-secondary-foreground text-xs flex items-center justify-center font-bold">
-                    {totalItems}
-                  </span>
-                )}
-              </Button>
             </Link>
 
-            {/* Auth / Mobile Menu Button */}
-            {isAuthenticated ? (
-              <div className="hidden md:flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)}>
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">{user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}</div>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => logout()}>Logout</Button>
-              </div>
-            ) : (
-              <div className="hidden md:flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setAuthOpen(true)}>Login</Button>
-                <Button variant="default" size="sm" onClick={() => setAuthOpen(true)}>Register</Button>
-              </div>
-            )}
-            <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
-            <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
-            {/* Show exactly one role-action button based on user role */}
-            {isAuthenticated && (
-              <div className="hidden md:flex items-center gap-2 ml-4">
-                {user?.role === 'admin' && (
-                  <Link to="/admin">
-                    <Button size="sm">Admin</Button>
-                  </Link>
-                )}
-                {user?.role === 'dba' && (
-                  <Link to="/dba">
-                    <Button size="sm">DBA</Button>
-                  </Link>
-                )}
-                {user?.role === 'delivery' && (
-                  <Link to="/delivery">
-                    <Button size="sm">DB</Button>
-                  </Link>
-                )}
-              </div>
-            )}
+            {/* Desktop Navigation - Hidden on mobile and tablet since we have bottom nav */}
+            <nav className="hidden lg:flex items-center gap-2">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`px-2 py-2 rounded-lg text-[clamp(0.75rem,1.2vw,1rem)] font-medium transition-colors whitespace-nowrap ${
+                    isActive(link.path)
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
 
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsOpen(!isOpen)}
-            >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
+            {/* Profile and Role Actions */}
+            <div className="flex items-center gap-1 md:gap-2 lg:gap-4">
+              {/* Language Toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
+                className="relative w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10"
+              >
+                <Globe className="h-4 w-4" />
+                <span className="absolute -bottom-1 -right-1 text-[10px] font-bold bg-secondary text-secondary-foreground rounded px-1">
+                  {language === 'en' ? 'हि' : 'EN'}
+                </span>
+              </Button>
+
+              {/* Cart - Only show for authenticated users */}
+              {isAuthenticated && (
+                <Link to="/cart">
+                  <Button variant="ghost" size="icon" className="relative w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10">
+                    <ShoppingCart className="h-4 w-4" />
+                    {totalItems > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 md:h-5 md:w-5 rounded-full bg-secondary text-secondary-foreground text-xs flex items-center justify-center font-bold">
+                        {totalItems > 99 ? '99+' : totalItems}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+              )}
+
+              {/* Profile */}
+              <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10">
+                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                  {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
+                </div>
+              </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Regular user header: Desktop navigation for larger screens */
+          <div className="flex items-center justify-between h-16 md:h-18 lg:h-20">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-display text-lg md:text-xl font-bold">G</span>
+              </div>
+              <span className="font-display text-lg md:text-lg lg:text-2xl xl:text-3xl font-bold text-foreground">
+                Glee<span className="text-secondary">Pack</span>
+              </span>
+            </Link>
 
-        {/* Mobile Navigation */}
+            {/* Desktop Navigation - Hidden on mobile and tablet since we have bottom nav */}
+            <nav className="hidden lg:flex items-center gap-2">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`px-2 py-2 rounded-lg text-[clamp(0.75rem,1.2vw,1rem)] font-medium transition-colors whitespace-nowrap ${
+                    isActive(link.path)
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1 md:gap-1 lg:gap-2">
+              {/* Language Toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
+                className="relative w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10"
+              >
+                <Globe className="h-4 w-4" />
+                <span className="absolute -bottom-1 -right-1 text-[10px] font-bold bg-secondary text-secondary-foreground rounded px-1">
+                  {language === 'en' ? 'हि' : 'EN'}
+                </span>
+              </Button>
+
+              {/* Cart - Only show for authenticated users */}
+              {isAuthenticated && (
+                <Link to="/cart">
+                  <Button variant="ghost" size="icon" className="relative w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10">
+                    <ShoppingCart className="h-4 w-4" />
+                    {totalItems > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 md:h-5 md:w-5 rounded-full bg-secondary text-secondary-foreground text-xs flex items-center justify-center font-bold">
+                        {totalItems > 99 ? '99+' : totalItems}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+              )}
+
+              {/* Profile/Login button for mobile */}
+              <Button variant="ghost" size="icon" onClick={() => isAuthenticated ? setProfileOpen(true) : setAuthOpen(true)} className="md:hidden w-8 h-8">
+                {isAuthenticated ? (
+                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                    {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
+                  </div>
+                ) : (
+                  <User className="h-4 w-4" />
+                )}
+              </Button>
+
+              {/* Auth / Mobile Menu Button - Hidden on mobile since we have bottom nav */}
+              {isAuthenticated ? (
+                <div className="hidden md:flex items-center gap-1 lg:gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10">
+                    <div className="w-6 h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                      {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
+                    </div>
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => logout()} className="text-xs lg:text-sm px-2 lg:px-3">Logout</Button>
+                </div>
+              ) : (
+                <div className="hidden md:flex items-center gap-1 lg:gap-2">
+                  <Button variant="default" size="sm" onClick={() => setAuthOpen(true)} className="text-xs lg:text-sm px-2 lg:px-3 font-semibold">
+                    Get Started
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Navigation - Only for larger screens when not using bottom nav */}
         {isOpen && (
-          <nav ref={mobileMenuRef} className="md:hidden py-4 border-t border-border animate-fade-in max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <nav ref={mobileMenuRef} className="hidden md:block lg:hidden py-4 border-t border-border animate-fade-in max-h-[calc(100vh-10rem)] overflow-y-auto">
             <div className="flex flex-col gap-2">
               {navLinks.map((link) => (
                 <Link
@@ -188,21 +243,6 @@ const Header = () => {
                   <Button variant="ghost" onClick={() => { setProfileOpen(true); setIsOpen(false); }} className="justify-start py-4 text-base touch-manipulation">
                     {language === 'en' ? 'Profile' : 'प्रोफ़ाइल'}
                   </Button>
-                  {user?.role === 'admin' && (
-                    <Link to="/admin" onClick={() => setIsOpen(false)} className="px-4 py-4 text-base text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg block touch-manipulation">
-                      Admin Panel
-                    </Link>
-                  )}
-                  {user?.role === 'dba' && (
-                    <Link to="/dba" onClick={() => setIsOpen(false)} className="px-4 py-4 text-base text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg block touch-manipulation">
-                      DBA Panel
-                    </Link>
-                  )}
-                  {user?.role === 'delivery' && (
-                    <Link to="/delivery" onClick={() => setIsOpen(false)} className="px-4 py-4 text-base text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg block touch-manipulation">
-                      Delivery Panel
-                    </Link>
-                  )}
                   <Button variant="outline" onClick={() => { logout(); setIsOpen(false); }} className="w-full py-4 text-base touch-manipulation">
                     {language === 'en' ? 'Logout' : 'लॉग आउट'}
                   </Button>
@@ -221,6 +261,9 @@ const Header = () => {
           </nav>
         )}
       </div>
+
+      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
+      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
     </header>
   );
 };

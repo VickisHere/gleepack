@@ -24,25 +24,33 @@ const Orders: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     if (!apiFetch) return;
     setLoading(true);
     apiFetch('/api/orders')
       .then(async (r) => r.ok ? await r.json() : [])
-      .then((data) => setOrders(Array.isArray(data) ? data : []))
+      .then((data) => setOrders(Array.isArray(data) ? data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));
   }, [apiFetch, isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // realtime updates for order changes (payment/status) coming from server
   useEffect(() => {
     if (!isAuthenticated) return;
     try {
-      const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || `${window.location.protocol}//${window.location.hostname}:3000`;
+      const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || `${window.location.protocol}//${window.location.hostname}:3010`;
       const socket = io(SOCKET_URL, { auth: token ? { token } : undefined });
       socketRef.current = socket;
       socket.on('connect', () => console.debug('orders socket connected', socket.id));
       socket.on('order_updated', (updated: any) => {
+        console.log('Orders page: order_updated', updated);
         setOrders((s) => s.map((o) => (o._id === updated._id ? updated : o)));
         setSelectedOrder((cur) => (cur && cur._id === updated._id ? updated : cur));
         
@@ -150,6 +158,8 @@ const getPaymentStatus = (order: any) => {
 };
 
 function OrderCard({ order, onOpen }: { order: any; onOpen: (o: any) => void }) {
+  const paymentStatus = getPaymentStatus(order);
+  
   return (
     <div 
       className="p-6 border border-gray-200 rounded-xl hover:shadow-lg hover:border-gray-300 transition-all cursor-pointer bg-white" 
@@ -165,6 +175,16 @@ function OrderCard({ order, onOpen }: { order: any; onOpen: (o: any) => void }) 
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <span>{order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Payment:</span>
+            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+              (order.paymentMethod === 'COD' || (!order.paymentMethod && order.paymentStatus !== 'paid')) 
+                ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+                : 'bg-blue-100 text-blue-800 border border-blue-200'
+            }`}>
+              {(order.paymentMethod === 'COD' || (!order.paymentMethod && order.paymentStatus !== 'paid')) ? '💵 COD' : '💳 Online'}
+            </span>
           </div>
         </div>
         <div className="text-right space-y-2 lg:text-left">
@@ -281,7 +301,13 @@ function OrderDetailsModal({ order, open, onOpenChange }: { order: any; open: bo
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Method:</span>
-                    <span className="font-medium">{order.paymentMethod || 'N/A'}</span>
+                    <span className={`font-medium px-2 py-1 rounded ${
+                      (order.paymentMethod === 'COD' || (!order.paymentMethod && order.paymentStatus !== 'paid')) 
+                        ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+                        : 'bg-blue-100 text-blue-800 border border-blue-200'
+                    }`}>
+                      {(order.paymentMethod === 'COD' || (!order.paymentMethod && order.paymentStatus !== 'paid')) ? '💵 COD' : '💳 Online'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Status:</span>

@@ -73,7 +73,7 @@ const Contact = () => {
           </div>
 
           {/* WhatsApp CTA */}
-          <a href="https://wa.me/919876543210" className="block">
+          <a href="https://wa.me/919572949137" className="block">
             <div className="bg-[#25D366] text-white rounded-2xl p-5 flex items-center gap-4 mb-6 hover:bg-[#22c55e] transition-colors">
               <MessageCircle className="h-8 w-8" />
               <div>
@@ -89,14 +89,14 @@ const Contact = () => {
               {language === 'en' ? 'OTHER WAYS TO CONNECT' : 'जुड़ने के अन्य तरीके'}
             </p>
             
-            <a href="tel:+919876543210" className="card-festive p-4 flex items-center justify-between mb-3 hover:border-primary transition-colors">
+            <a href="tel:+919572949137" className="card-festive p-4 flex items-center justify-between mb-3 hover:border-primary transition-colors">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
                   <Phone className="h-5 w-5" />
                 </div>
                 <div>
                   <h4 className="font-medium">{language === 'en' ? 'Call Us' : 'कॉल करें'}</h4>
-                  <p className="text-sm text-muted-foreground">+91 98765 43210</p>
+                  <p className="text-sm text-muted-foreground">+91 95729 49137</p>
                 </div>
               </div>
               <ChevronDown className="h-5 w-5 text-muted-foreground -rotate-90" />

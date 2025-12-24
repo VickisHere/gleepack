@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export interface CartItem {
   id: string;
   name: string;
-  nameHi: string;
+  nameHi?: string;
   price: number;
   category: string;
   tier: string;
@@ -25,10 +25,21 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('gleePack-cart');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [items, setItems] = useState<CartItem[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('gleePack-cart');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setItems(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse cart from localStorage', e);
+    }
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('gleePack-cart', JSON.stringify(items));
@@ -62,10 +73,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => setItems([]);
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => {
-    const addonTotal = item.addons.reduce((a, addon) => a + addon.price, 0);
-    return sum + ((item.price + addonTotal) * item.quantity);
+  const totalItems = (items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const totalPrice = (items || []).reduce((sum, item) => {
+    const addonTotal = (item.addons || []).reduce((a, addon) => a + (addon.price || 0), 0);
+    return sum + ((item.price || 0) + addonTotal) * (item.quantity || 0);
   }, 0);
 
   return (

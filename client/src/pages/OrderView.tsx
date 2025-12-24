@@ -198,15 +198,15 @@ export default function OrderView() {
                     <span className="text-gray-600">Status:</span>
                     <span className="font-medium capitalize">{order.status?.replace('_', ' ') || 'Pending'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-600">Payment:</span>
-                    <span className={`font-medium ${paymentStatus.status === 'Paid' ? 'text-green-700' : 'text-red-700'}`}>
-                      {paymentStatus.status}
+                    <span className={`font-medium px-2 py-1 rounded text-sm ${
+                      (order.paymentMethod === 'COD' || (!order.paymentMethod && order.paymentStatus !== 'paid')) 
+                        ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+                        : 'bg-blue-100 text-blue-800 border border-blue-200'
+                    }`}>
+                      {(order.paymentMethod === 'COD' || (!order.paymentMethod && order.paymentStatus !== 'paid')) ? '💵 COD' : '💳 Online'}
                     </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Method:</span>
-                    <span className="font-medium">{order.paymentMethod || 'N/A'}</span>
                   </div>
                   {order.deliveryInstructions && (
                     <div className="mt-2 p-2 bg-yellow-100 rounded border-l-4 border-yellow-400">

@@ -9,7 +9,8 @@ type AuthContextType = {
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
-  apiFetch?: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+  apiFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+  saveAuth: (token: string, user: User) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -98,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     isAuthenticated: !!token,
     apiFetch,
+    saveAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

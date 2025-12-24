@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ScrollToTop from "@/components/ScrollToTop";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Index from "./pages/Index";
@@ -25,6 +26,9 @@ import AdminOrders from "./pages/AdminOrders";
 import AdminPanel from "./pages/AdminPanel";
 import DeliveryPanel from "./pages/DeliveryPanel";
 import DBADashboard from "./pages/DBADashboard";
+import GIMPanel from "./pages/GIMPanel";
+import InfluencerPanel from "./pages/InfluencerPanel";
+import AuthCallback from "./pages/AuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +41,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/kits" element={<Kits />} />
@@ -54,6 +59,9 @@ const App = () => (
               <Route path="/admin/orders" element={<AdminOrders />} />
               <Route path="/admin" element={<AdminPanel />} />
               <Route path="/dba" element={<DBADashboard />} />
+              <Route path="/gim" element={<GIMPanel />} />
+              <Route path="/influencer" element={<InfluencerPanel />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="*" element={<NotFound />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />

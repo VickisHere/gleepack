@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Cake, Gift, PartyPopper, Sparkles, Check, Store } from 'lucide-react';
+import { ArrowRight, Cake, Gift, PartyPopper, Sparkles, Check, Store, Baby, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Layout from '@/components/layout/Layout';
@@ -30,10 +30,10 @@ const Index = () => {
   }, [apiFetch]);
 
   const problemShops = [
-    { icon: '🎈', name: t('problem.shop1') },
-    { icon: '🎂', name: t('problem.shop2') },
-    { icon: '🎊', name: t('problem.shop3') },
-    { icon: '🍽️', name: t('problem.shop4') },
+    { icon: '�‍♂️', name: t('problem.shop1') },
+    { icon: '🤔', name: t('problem.shop2') },
+    { icon: '⏰', name: t('problem.shop3') },
+    { icon: '😰', name: t('problem.shop4') },
   ];
 
   const solutionPoints = [
@@ -99,7 +99,6 @@ const Index = () => {
               <div key={i} className="card-festive p-6 text-center">
                 <div className="text-4xl mb-3">{shop.icon}</div>
                 <p className="font-medium text-sm">{shop.name}</p>
-                <Store className="h-4 w-4 mx-auto mt-2 text-muted-foreground" />
               </div>
             ))}
           </div>
@@ -134,19 +133,37 @@ const Index = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="card-festive p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10">
-                <Cake className="h-12 w-12 mx-auto mb-4 text-primary" />
-                <p className="font-display font-semibold">{t('kits.birthday')}</p>
-              </div>
-              <div className="card-festive p-6 text-center bg-gradient-to-br from-secondary/10 to-secondary/20">
-                <Gift className="h-12 w-12 mx-auto mb-4 text-secondary" />
-                <p className="font-display font-semibold">{t('kits.anniversary')}</p>
-              </div>
-              <div className="card-festive p-6 text-center col-span-2 bg-gradient-to-br from-purple-light/10 to-primary/5">
-                <PartyPopper className="h-12 w-12 mx-auto mb-4 text-purple-light" />
-                <p className="font-display font-semibold">{t('kits.festival')}</p>
-              </div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+              <Link to="/kits?category=birthday">
+                <div className="card-festive p-4 md:p-6 lg:p-8 text-center bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-lg transition-all cursor-pointer min-h-[120px] md:min-h-[140px] lg:min-h-[160px] flex flex-col justify-center">
+                  <Cake className="h-10 w-10 md:h-12 md:w-12 lg:h-14 lg:w-14 mx-auto mb-2 md:mb-4 lg:mb-6 text-primary" />
+                  <p className="font-display font-semibold text-sm md:text-base lg:text-lg leading-tight">{t('kits.birthday')}</p>
+                </div>
+              </Link>
+              <Link to="/kits?category=anniversary">
+                <div className="card-festive p-3 md:p-4 lg:p-6 text-center bg-gradient-to-br from-secondary/10 to-secondary/20 hover:shadow-lg transition-all cursor-pointer min-h-[130px] md:min-h-[150px] lg:min-h-[170px] flex flex-col justify-center">
+                  <Gift className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 mx-auto mb-1 md:mb-2 lg:mb-3 text-secondary" />
+                  <p className="font-display font-semibold text-xs md:text-sm lg:text-base leading-tight px-1">{t('kits.anniversary')}</p>
+                </div>
+              </Link>
+              <Link to="/kits?category=babyshower">
+                <div className="card-festive p-3 md:p-4 lg:p-6 text-center bg-gradient-to-br from-pink-100 to-pink-200 hover:shadow-lg transition-all cursor-pointer min-h-[130px] md:min-h-[150px] lg:min-h-[170px] flex flex-col justify-center">
+                  <Baby className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 mx-auto mb-1 md:mb-2 lg:mb-3 text-pink-600" />
+                  <p className="font-display font-semibold text-xs md:text-sm lg:text-base leading-tight break-words px-1">{t('kits.babyshower')}</p>
+                </div>
+              </Link>
+              <Link to="/kits?category=grandopening">
+                <div className="card-festive p-3 md:p-4 lg:p-6 text-center bg-gradient-to-br from-green-100 to-green-200 hover:shadow-lg transition-all cursor-pointer min-h-[130px] md:min-h-[150px] lg:min-h-[170px] flex flex-col justify-center">
+                  <Store className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 mx-auto mb-1 md:mb-2 lg:mb-3 text-green-600" />
+                  <p className="font-display font-semibold text-xs md:text-sm lg:text-base leading-tight break-words px-1">{t('kits.grandopening')}</p>
+                </div>
+              </Link>
+              <Link to="/kits/custom">
+                <div className="card-festive p-3 md:p-4 lg:p-6 text-center bg-gradient-to-br from-purple-100 to-purple-200 hover:shadow-lg transition-all cursor-pointer min-h-[130px] md:min-h-[150px] lg:min-h-[170px] flex flex-col justify-center col-span-2 sm:col-span-3 md:col-span-4 lg:col-span-1">
+                  <Palette className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 mx-auto mb-1 md:mb-2 lg:mb-3 text-purple-600" />
+                  <p className="font-display font-semibold text-xs md:text-sm lg:text-base leading-tight break-words px-1">{t('kits.custom')}</p>
+                </div>
+              </Link>
             </div>
           </div>
         </div>
@@ -205,25 +222,6 @@ const Index = () => {
               </Button>
             </Link>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="section-padding bg-primary text-primary-foreground">
-        <div className="container-custom text-center">
-          <h2 className="font-display text-3xl md:text-4xl 2xl:text-5xl font-bold mb-4">
-            {language === 'en' ? 'Ready to Celebrate?' : 'जश्न मनाने के लिए तैयार?'}
-          </h2>
-          <p className="text-primary-foreground/80 text-lg mb-8 max-w-2xl mx-auto">
-            {language === 'en' 
-              ? 'Order your complete event kit today and make your celebration stress-free!'
-              : 'आज ही अपनी पूर्ण इवेंट किट ऑर्डर करें और अपना जश्न तनाव-मुक्त बनाएं!'}
-          </p>
-          <Link to="/kits">
-            <Button size="lg" className="btn-gold text-lg px-8 py-6">
-              {t('hero.cta1')} <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </Link>
         </div>
       </section>
     </Layout>

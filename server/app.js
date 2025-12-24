@@ -5,6 +5,8 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var dotenv = require('dotenv');
 var cors = require('cors');
+var passport = require('passport');
+var session = require('express-session');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -15,9 +17,12 @@ var paymentsRouter = require('./routes/payments');
 var productsRouter = require('./routes/products');
 var profileRouter = require('./routes/profile');
 var adminRouter = require('./routes/admin');
+var couponsRouter = require('./routes/coupons');
 var debugRouter = require('./routes/debug');
 var healthRouter = require('./routes/health');
 var streamRouter = require('./routes/stream');
+var influencerRouter = require('./routes/influencer');
+var waitingCustomersRouter = require('./routes/waiting-customers');
 
 dotenv.config();
 
@@ -25,17 +30,34 @@ var app = express();
 
 app.use(cors());
 
+// Session configuration (required for Passport.js)
+app.use(session({
+  secret: process.env.JWT_SECRET || 'your_session_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 // initialize MongoDB connection (reads MONGODB_URI from environment via server/.env)
 (async () => {
   try {
     const mongo = require('./lib/mongoClient');
     await mongo.connect();
-    console.log('Connected to MongoDB');
+    console.log('✅ Connected to MongoDB');
   } catch (err) {
-    console.warn('MongoDB connection failed, falling back to dev mode:', err.message || err);
-    console.log('Server will run in development mode with JSON file fallback');
+    console.warn('⚠️  MongoDB connection failed, falling back to dev mode:', err.message || err);
+    console.log('🛠️  Server will run in development mode with JSON file fallback');
   }
 })();
+
+// Passport configuration
+require('./lib/passport')(passport);
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -56,9 +78,13 @@ app.use('/api/products', productsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/coupons', couponsRouter);
 app.use('/api/debug', debugRouter);
 app.use('/api/health', healthRouter);
 app.use('/api/stream', streamRouter);
+app.use('/api/influencer', influencerRouter);
+app.use('/api/waiting-customers', waitingCustomersRouter);
+app.use('/api/waiting-customers', waitingCustomersRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

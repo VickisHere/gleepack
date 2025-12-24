@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import Header from './Header';
 import Footer from './Footer';
+import BottomNav from './BottomNav';
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,7 +15,7 @@ const Layout = ({ children }: LayoutProps) => {
         {children}
       </main>
       <Footer />
-      {/* WhatsApp button removed — using only MongoDB-backed flows */}
+      <BottomNav />
     </div>
   );
 };

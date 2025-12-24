@@ -48,10 +48,22 @@ const COLORS = ['#a855f7', '#6366f1', '#22c55e', '#f97316', '#e11d48', '#0ea5e9'
 
 export default function AdminPanel() {
     const { apiFetch, token, user } = useAuthContext();
+
+    // Only admin can access this panel
+    if (user?.role !== 'admin') {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+                    <p className="text-gray-600">You do not have permission to access this page.</p>
+                </div>
+            </div>
+        );
+    }
     const [orders, setOrders] = useState<any[]>([]);
     const [selected, setSelected] = useState<any | null>(null);
     const [open, setOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'employees' | 'customers'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'employees' | 'customers' | 'coupons' | 'influencers' | 'waiting-customers'>('dashboard');
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const socketRef = useRef<Socket | null>(null);
 
@@ -71,12 +83,12 @@ export default function AdminPanel() {
         load();
 
         try {
-            const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || `${window.location.protocol}//${window.location.hostname}:3000`;
+            const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || `${window.location.protocol}//${window.location.hostname}:3010`;
             const socket = io(SOCKET_URL, { auth: token ? { token } : undefined });
             socketRef.current = socket;
             socket.on('connect', () => console.debug('socket connected', socket.id));
-            socket.on('order_created', (order: any) => setOrders((s) => [order, ...s]));
-            socket.on('order_updated', (order: any) => setOrders((s) => s.map((o) => (o._id === order._id ? order : o))));
+            socket.on('order_created', (order: any) => { console.log('order_created', order); setOrders((s) => [order, ...s]); });
+            socket.on('order_updated', (order: any) => { console.log('order_updated', order); setOrders((s) => s.map((o) => (o._id === order._id ? order : o))); });
             socket.on('connect_error', (err) => console.warn('socket connect_error', err));
         } catch (e) {
             console.warn('Socket connection failed', e);
@@ -89,6 +101,9 @@ export default function AdminPanel() {
     }, [apiFetch, token]);
 
     const updateStatus = async (id: string, status: string) => {
+        // Optimistic update
+        setOrders((s) => s.map((o) => (o._id === id ? { ...o, status } : o)));
+
         try {
             const res = await apiFetch(`/api/orders/${id}/status`, {
                 method: 'PATCH',
@@ -117,6 +132,10 @@ export default function AdminPanel() {
             const ok = window.confirm('Confirm: mark this order as PAID? This action will record the admin and timestamp.');
             if (!ok) return;
         }
+
+        // Optimistic update
+        setOrders((s) => s.map((o) => (o._id === id ? { ...o, paymentStatus: next } : o)));
+
         try {
             const res = await apiFetch(`/api/orders/${id}/payment`, {
                 method: 'PATCH',
@@ -135,6 +154,8 @@ export default function AdminPanel() {
 
     const stats = {
         total: orders.length,
+        totalRevenue: orders.reduce((sum, o) => sum + (o.total || o.amount || 0), 0),
+        netRevenue: orders.reduce((sum, o) => sum + ((o.total || o.amount || 0) - (o.coupon?.commissionAmount || 0)), 0),
         byStatus: STATUS_STAGES.reduce(
             (acc: any, s) => ({ ...acc, [s]: orders.filter((o) => o.status === s).length }),
             {},
@@ -216,7 +237,44 @@ export default function AdminPanel() {
                     >
                         Customers
                     </button>
+                    <button
+                        onClick={() => { setActiveTab('coupons'); setMobileMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'coupons'
+                                ? 'bg-purple-600 text-white'
+                                : 'text-purple-200 hover:bg-purple-900/40'
+                            }`}
+                    >
+                        Coupons
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('influencers'); setMobileMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'influencers'
+                                ? 'bg-purple-600 text-white'
+                                : 'text-purple-200 hover:bg-purple-900/40'
+                            }`}
+                    >
+                        Influencers
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('waiting-customers'); setMobileMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'waiting-customers'
+                                ? 'bg-purple-600 text-white'
+                                : 'text-purple-200 hover:bg-purple-900/40'
+                            }`}
+                    >
+                        Waiting Customers
+                    </button>
                 </nav>
+                
+                {/* Back to Home Button */}
+                <div className="mt-8 px-2">
+                    <a
+                        href="/"
+                        className="w-full flex items-center justify-center px-3 py-3 rounded-lg text-sm bg-purple-700 text-white hover:bg-purple-600 transition-colors"
+                    >
+                        ← Back to Home
+                    </a>
+                </div>
             </aside>
 
             {/* Main */}
@@ -234,7 +292,10 @@ export default function AdminPanel() {
                                 {activeTab === 'dashboard' ? 'Dashboard Overview' : 
                                  activeTab === 'orders' ? 'Orders' :
                                  activeTab === 'employees' ? 'Employee Management' :
-                                 activeTab === 'customers' ? 'Customer Management' : 'Products'}
+                                 activeTab === 'customers' ? 'Customer Management' :
+                                 activeTab === 'coupons' ? 'Coupon Management' :
+                                 activeTab === 'influencers' ? 'Influencer Management' :
+                                 activeTab === 'waiting-customers' ? 'Waiting Customers' : 'Products'}
                             </h1>
                             <p className="text-xs text-purple-200/70">
                                 Real-time orders, revenue and customer analytics.
@@ -259,6 +320,12 @@ export default function AdminPanel() {
                     <EmployeesManager />
                 ) : activeTab === 'customers' ? (
                     <CustomersManager />
+                ) : activeTab === 'coupons' ? (
+                    <CouponsManager />
+                ) : activeTab === 'influencers' ? (
+                    <InfluencersManager />
+                ) : activeTab === 'waiting-customers' ? (
+                    <WaitingCustomersManager />
                 ) : (
                     <ProductsManager socketRef={socketRef} />
                 )}
@@ -338,19 +405,16 @@ function DashboardOverview({ orders, userRole }: { orders: any[], userRole?: str
     const todayStr = new Date().toISOString().slice(0, 10);
     const todayRevenue = dailyRevenue.find((d) => d.date === todayStr)?.revenue || 0;
     const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
+    const netRevenue = orders.reduce((sum, o) => sum + ((o.total || o.amount || 0) - (o.coupon?.commissionAmount || 0)), 0);
 
     return (
         <div className="space-y-6">
             {/* top cards */}
             <div className="grid gap-4 md:grid-cols-4">
-                <StatCard label="Total Orders" value={orders.length} />
-                {userRole === 'admin' && (
-                    <>
-                        <StatCard label="Total Revenue" value={`₹${totalRevenue.toFixed(0)}`} />
-                        <StatCard label="Today Revenue" value={`₹${todayRevenue.toFixed(0)}`} />
-                    </>
-                )}
+                <StatCard label="Total Revenue" value={`₹${totalRevenue.toFixed(0)}`} />
+                <StatCard label="Net Revenue" value={`₹${netRevenue.toFixed(0)}`} />
                 <StatCard label="Delivered" value={deliveredCount} />
+                <StatCard label="Today Revenue" value={`₹${todayRevenue.toFixed(0)}`} />
             </div>
 
             {/* charts */}
@@ -475,9 +539,9 @@ function OrdersTable({
         <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <StatCard label="Total Orders" value={stats.total} />
-                {STATUS_STAGES.slice(0, 3).map((s) => (
-                    <StatCard key={s} label={s} value={stats.byStatus[s] || 0} />
-                ))}
+                <StatCard label="Received" value={stats.byStatus.received || 0} />
+                <StatCard label="Delivered" value={stats.byStatus.delivered || 0} />
+                <StatCard label="Confirmed" value={stats.byStatus.confirmed || 0} />
             </div>
 
             <div className="overflow-auto border border-purple-800/40 rounded-xl bg-[#07001b]">
@@ -488,8 +552,9 @@ function OrdersTable({
                                 'Order ID',
                                 'Customer',
                                 'Items',
-                                'Total',
+                                'Total Amount',
                                 'Payment',
+                                'Coupon Details',
                                 'Status',
                                 'Created',
                                 'Actions',
@@ -562,6 +627,27 @@ function OrdersTable({
                                             </Button>
                                         )}
                                     </div>
+                                </td>
+
+                                <td className="p-2 align-top">
+                                    {o.coupon ? (
+                                        <div className="text-xs">
+                                            <div className="font-medium text-purple-100">{o.coupon.code}</div>
+                                            <div className="text-purple-300/80">
+                                                {o.coupon.type === 'percentage' ? `${o.coupon.value}%` : `₹${o.coupon.value}`} off
+                                            </div>
+                                            <div className="text-green-400">
+                                                Commission: ₹{o.coupon.commissionAmount || 0}
+                                            </div>
+                                            {o.coupon.influencerId && (
+                                                <div className="text-blue-400">
+                                                    Influencer Coupon
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <span className="text-purple-300/60">No coupon</span>
+                                    )}
                                 </td>
 
                                 <td className="p-2 align-top">
@@ -1059,6 +1145,8 @@ function EmployeesManager() {
     const [loading, setLoading] = useState(true);
     const [showCreateDBA, setShowCreateDBA] = useState(false);
     const [showCreateDelivery, setShowCreateDelivery] = useState(false);
+    const [showCreateGIM, setShowCreateGIM] = useState(false);
+    const [showCreateInfluencer, setShowCreateInfluencer] = useState(false);
     const [formData, setFormData] = useState({ name: '', email: '' });
 
     useEffect(() => {
@@ -1072,8 +1160,8 @@ function EmployeesManager() {
             const endpoint = user?.role === 'dba' ? '/api/admin/users/employees' : '/api/admin/users';
             const res = await apiFetch(endpoint);
             const data = await res.json();
-            // normalize array and filter to employees
-            setUsers(Array.isArray(data) ? data.filter(u => u.role === 'dba' || u.role === 'delivery') : []);
+            // normalize array and filter to employees (exclude influencers — they are managed separately)
+            setUsers(Array.isArray(data) ? data.filter(u => u.role === 'dba' || u.role === 'delivery' || u.role === 'gim') : []);
         } catch (e) {
             console.error('Could not load users', e);
         } finally {
@@ -1081,9 +1169,12 @@ function EmployeesManager() {
         }
     };
 
-    const createUser = async (role: 'dba' | 'delivery') => {
+    const createUser = async (role: 'dba' | 'delivery' | 'gim' | 'influencer') => {
         try {
-            const endpoint = role === 'dba' ? '/api/admin/users/dba' : '/api/admin/users/delivery';
+            const endpoint = role === 'dba' ? '/api/admin/users/dba' : 
+                           role === 'delivery' ? '/api/admin/users/delivery' : 
+                           role === 'gim' ? '/api/admin/users/gim' :
+                           '/api/admin/users/influencer';
             const res = await apiFetch(endpoint, {
                 method: 'POST',
                 body: JSON.stringify(formData),
@@ -1093,6 +1184,8 @@ function EmployeesManager() {
                 setFormData({ name: '', email: '' });
                 setShowCreateDBA(false);
                 setShowCreateDelivery(false);
+                setShowCreateGIM(false);
+                setShowCreateInfluencer(false);
             } else {
                 const error = await res.json();
                 alert(error.error || 'Failed to create user');
@@ -1144,7 +1237,20 @@ function EmployeesManager() {
             case 'admin': return 'bg-red-600';
             case 'dba': return 'bg-blue-600';
             case 'delivery': return 'bg-green-600';
+            case 'gim': return 'bg-purple-600';
+            case 'influencer': return 'bg-orange-600';
             default: return 'bg-gray-600';
+        }
+    };
+
+    const getRoleDisplayName = (role: string) => {
+        switch (role) {
+            case 'admin': return 'Admin';
+            case 'dba': return 'DBA';
+            case 'delivery': return 'GDM';
+            case 'gim': return 'GIM';
+            case 'influencer': return 'Influencer';
+            default: return role;
         }
     };
 
@@ -1167,9 +1273,19 @@ function EmployeesManager() {
                             Create DBA
                         </Button>
                     )}
+                    {user?.role === 'admin' && (
+                        <Button onClick={() => setShowCreateGIM(true)} className="bg-purple-600 hover:bg-purple-700">
+                            Create GIM
+                        </Button>
+                    )}
+                    {user?.role === 'admin' && (
+                        <Button onClick={() => setShowCreateInfluencer(true)} className="bg-orange-600 hover:bg-orange-700">
+                            Create Influencer (from Users)
+                        </Button>
+                    )}
                     {(user?.role === 'admin' || user?.role === 'dba') && (
                         <Button onClick={() => setShowCreateDelivery(true)} className="bg-green-600 hover:bg-green-700">
-                            Create Delivery Boy
+                            Create GDM
                         </Button>
                     )}
                 </div>
@@ -1200,7 +1316,7 @@ function EmployeesManager() {
                                     <td className="px-4 py-3 text-sm text-purple-200">{u.email}</td>
                                     <td className="px-4 py-3">
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${getRoleBadgeColor(u.role)}`}>
-                                            {u.role}
+                                            {getRoleDisplayName(u.role)}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-purple-300">
@@ -1216,8 +1332,9 @@ function EmployeesManager() {
                                                         className="text-xs bg-[#050014] border border-purple-600 text-white rounded px-2 py-1"
                                                     >
                                                         <option value="customer">Customer</option>
-                                                        <option value="delivery">Delivery</option>
+                                                        <option value="delivery">GDM</option>
                                                         <option value="dba">DBA</option>
+                                                        <option value="gim">GIM</option>
                                                     </select>
                                                     <Button
                                                         size="sm"
@@ -1252,7 +1369,7 @@ function EmployeesManager() {
                                         <td className="px-4 py-3 text-sm text-purple-200">{u.email}</td>
                                         <td className="px-4 py-3">
                                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${getRoleBadgeColor(u.role)}`}>
-                                                {u.role}
+                                                {getRoleDisplayName(u.role)}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -1313,13 +1430,53 @@ function EmployeesManager() {
                 </DialogContent>
             </Dialog>
 
+            {/* Create GIM Dialog */}
+            <Dialog open={showCreateGIM} onOpenChange={setShowCreateGIM}>
+                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50">
+                    <DialogHeader>
+                        <DialogTitle className="text-purple-100">Create GIM Account</DialogTitle>
+                        <DialogDescription className="text-purple-300/80">
+                            Create a new Gleepack Inventory Manager account for product management.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Name</label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="Enter full name"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Email</label>
+                            <input
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="Enter email address"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowCreateGIM(false)}>Cancel</Button>
+                        <Button onClick={() => createUser('gim')} className="bg-purple-600 hover:bg-purple-700">
+                            Create GIM
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Create Delivery Boy Dialog */}
             <Dialog open={showCreateDelivery} onOpenChange={setShowCreateDelivery}>
                 <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50">
                     <DialogHeader>
-                        <DialogTitle className="text-purple-100">Create Delivery Boy Account</DialogTitle>
+                        <DialogTitle className="text-purple-100">Create GDM Account</DialogTitle>
                         <DialogDescription className="text-purple-300/80">
-                            Create a new delivery boy account for order assignments.
+                            Create a new GDM account for order assignments.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -1347,7 +1504,1231 @@ function EmployeesManager() {
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setShowCreateDelivery(false)}>Cancel</Button>
                         <Button onClick={() => createUser('delivery')} className="bg-green-600 hover:bg-green-700">
-                            Create Delivery Boy
+                            Create GDM
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Create Influencer Dialog (assign role to existing user) */}
+            <Dialog open={showCreateInfluencer} onOpenChange={setShowCreateInfluencer}>
+                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50">
+                    <DialogHeader>
+                        <DialogTitle className="text-purple-100">Create Influencer</DialogTitle>
+                        <DialogDescription className="text-purple-300/80">
+                            Assign the influencer role to an existing user (they must already exist in Users). This will allow admin to configure their coupon and commission.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Email (existing user)</label>
+                            <input
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="user@example.com"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Name (optional)</label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="John Doe"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowCreateInfluencer(false)}>Cancel</Button>
+                        <Button onClick={() => createUser('influencer')} className="bg-orange-600 hover:bg-orange-700">
+                            Assign Influencer Role
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function CouponsManager() {
+    const { apiFetch, user } = useAuthContext();
+    const [coupons, setCoupons] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateCoupon, setShowCreateCoupon] = useState(false);
+    const [formData, setFormData] = useState({
+        code: '',
+        type: 'percentage',
+        value: '',
+        minOrderValue: '',
+        maxDiscount: '',
+        usageType: 'unlimited',
+        totalUsageLimit: '',
+        perUserLimit: '1',
+        expiryDate: '',
+        active: true
+    });
+
+    useEffect(() => {
+        loadCoupons();
+    }, []);
+
+    const loadCoupons = async () => {
+        try {
+            // Load only regular coupons (not influencer-specific ones)
+            const res = await apiFetch('/api/admin/coupons');
+            if (res.ok) {
+                const data = await res.json();
+                // Filter out influencer coupons - only show regular coupons
+                const regularCoupons = data.filter((coupon: any) => !coupon.influencerId);
+                setCoupons(regularCoupons);
+            }
+        } catch (e) {
+            console.error('Failed to load coupons', e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const createCoupon = async () => {
+        if (!formData.code || !formData.type || !formData.value || !formData.usageType) {
+            alert('Please fill all required fields');
+            return;
+        }
+
+        try {
+            const res = await apiFetch('/api/admin/coupons', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+            if (res.ok) {
+                loadCoupons();
+                setShowCreateCoupon(false);
+                setFormData({
+                    code: '',
+                    type: 'percentage',
+                    value: '',
+                    minOrderValue: '',
+                    maxDiscount: '',
+                    usageType: 'unlimited',
+                    totalUsageLimit: '',
+                    perUserLimit: '1',
+                    expiryDate: '',
+                    active: true
+                });
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to create coupon');
+            }
+        } catch (e) {
+            console.error('Error creating coupon', e);
+            alert('Failed to create coupon');
+        }
+    };
+
+    const updateCouponStatus = async (couponId: string, newStatus: boolean) => {
+        try {
+            const res = await apiFetch(`/api/admin/coupons/${couponId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ active: newStatus })
+            });
+            if (res.ok) {
+                loadCoupons();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to update coupon status');
+            }
+        } catch (e) {
+            console.error('Error updating coupon status', e);
+            alert('Failed to update coupon status');
+        }
+    };
+
+    const deleteCoupon = async (couponId: string) => {
+        if (!confirm('Are you sure you want to delete this coupon?')) return;
+        try {
+            const res = await apiFetch(`/api/admin/coupons/${couponId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                loadCoupons();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to delete coupon');
+            }
+        } catch (e) {
+            console.error('Error deleting coupon', e);
+            alert('Failed to delete coupon');
+        }
+    };
+
+    if (user?.role !== 'admin') {
+        return (
+            <div className="text-center py-8">
+                <p className="text-purple-200">Access denied. Admin privileges required.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-white">Regular Coupon Management</h2>
+                <Button onClick={() => setShowCreateCoupon(true)} className="bg-purple-600 hover:bg-purple-700">
+                    Create Coupon
+                </Button>
+            </div>
+
+            <div className="bg-yellow-900/20 border border-yellow-600/40 rounded-lg p-4">
+                <p className="text-yellow-200 text-sm">
+                    <strong>Note:</strong> This section manages regular coupons only. Influencer-specific coupons are managed in the "Influencers" section.
+                </p>
+            </div>
+
+            {loading ? (
+                <div className="text-center py-8">
+                    <p className="text-purple-200">Loading coupons...</p>
+                </div>
+            ) : (
+                <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-[#07001b] border-b border-purple-700/40">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Code</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Type</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Value</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Status</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Usage</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {coupons.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-8 text-center text-purple-200/70">
+                                        No regular coupons found.
+                                    </td>
+                                </tr>
+                            ) : (
+                                coupons.map((coupon) => (
+                                    <tr key={coupon._id} className="border-b border-purple-700/20">
+                                        <td className="px-4 py-3 text-sm text-white font-mono">{coupon.code}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200 capitalize">{coupon.type}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">
+                                            {coupon.type === 'percentage' ? `${coupon.value}%` : `₹${coupon.value}`}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                                coupon.active ? 'text-green-300 bg-green-900/40' : 'text-red-300 bg-red-900/40'
+                                            }`}>
+                                                {coupon.active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">
+                                            {coupon.usageCount || 0} / {coupon.usageType === 'unlimited' ? '∞' : coupon.totalUsageLimit || 'N/A'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => updateCouponStatus(coupon._id, !coupon.active)}
+                                                    className={`text-xs px-2 py-1 ${
+                                                        coupon.active 
+                                                            ? 'bg-red-600 hover:bg-red-700 text-white' 
+                                                            : 'bg-green-600 hover:bg-green-700 text-white'
+                                                    }`}
+                                                >
+                                                    {coupon.active ? 'Deactivate' : 'Activate'}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="destructive"
+                                                    onClick={() => deleteCoupon(coupon._id)}
+                                                    className="text-xs"
+                                                >
+                                                    Delete
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* Create Coupon Dialog */}
+            <Dialog open={showCreateCoupon} onOpenChange={setShowCreateCoupon}>
+                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50 max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-purple-100">Create Regular Coupon</DialogTitle>
+                        <DialogDescription className="text-purple-300/80">
+                            Create a new coupon code for general use (not influencer-specific).
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Coupon Code</label>
+                            <input
+                                type="text"
+                                value={formData.code}
+                                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white font-mono"
+                                placeholder="SUMMER10"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Discount Type</label>
+                            <select
+                                value={formData.type}
+                                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                            >
+                                <option value="percentage">Percentage</option>
+                                <option value="flat">Flat Amount</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Discount Value</label>
+                            <input
+                                type="number"
+                                value={formData.value}
+                                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder={formData.type === 'percentage' ? '10' : '50'}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Minimum Order Value</label>
+                            <input
+                                type="number"
+                                value={formData.minOrderValue}
+                                onChange={(e) => setFormData({ ...formData, minOrderValue: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="100"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Maximum Discount (Optional)</label>
+                            <input
+                                type="number"
+                                value={formData.maxDiscount}
+                                onChange={(e) => setFormData({ ...formData, maxDiscount: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Usage Type</label>
+                            <select
+                                value={formData.usageType}
+                                onChange={(e) => setFormData({ ...formData, usageType: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                            >
+                                <option value="unlimited">Unlimited</option>
+                                <option value="limited">Limited</option>
+                            </select>
+                        </div>
+                        {formData.usageType === 'limited' && (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-purple-200 mb-1">Total Usage Limit</label>
+                                    <input
+                                        type="number"
+                                        value={formData.totalUsageLimit}
+                                        onChange={(e) => setFormData({ ...formData, totalUsageLimit: e.target.value })}
+                                        className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                        placeholder="100"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-purple-200 mb-1">Expiry Date</label>
+                                    <input
+                                        type="datetime-local"
+                                        value={formData.expiryDate}
+                                        onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                                        className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                        required
+                                    />
+                                </div>
+                            </>
+                        )}
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Per User Limit</label>
+                            <input
+                                type="number"
+                                value={formData.perUserLimit}
+                                onChange={(e) => setFormData({ ...formData, perUserLimit: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="1"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowCreateCoupon(false)}>Cancel</Button>
+                        <Button onClick={createCoupon} className="bg-purple-600 hover:bg-purple-700">
+                            Create Coupon
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+/* -------------- INFLUENCERS MANAGER -------------- */
+
+function InfluencersManager() {
+    const { apiFetch, user } = useAuthContext();
+    const [influencers, setInfluencers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateInfluencer, setShowCreateInfluencer] = useState(false);
+    const [showCreateCoupon, setShowCreateCoupon] = useState(false);
+    const [selectedInfluencerForCoupon, setSelectedInfluencerForCoupon] = useState<any>(null);
+    const [selectedInfluencer, setSelectedInfluencer] = useState<any>(null);
+    const [formData, setFormData] = useState({
+        email: '',
+        name: '',
+        couponCode: '',
+        customerDiscountType: 'percentage',
+        customerDiscountValue: '',
+        commissionPercentage: '',
+        validityType: 'unlimited',
+        expiryDate: '2099-12-31T23:59',
+        totalUsageLimit: '',
+        perUserLimit: '1',
+        showOrderAmount: false
+    });
+    const [couponFormData, setCouponFormData] = useState({
+        couponCode: '',
+        discountType: 'percentage',
+        discountValue: '',
+        minOrderValue: '',
+        maxDiscount: '',
+        couponUsageType: 'unlimited',
+        totalUsageLimit: '',
+        perUserLimit: '1',
+        expiryDate: '',
+        status: 'active',
+        commissionPercentage: ''
+    });
+
+    useEffect(() => {
+        loadInfluencers();
+    }, []);
+
+    const loadInfluencers = async () => {
+        try {
+            // Get users with influencer role
+            const res = await apiFetch('/api/admin/users?role=influencer');
+            if (res.ok) {
+                const users = await res.json();
+                // Get influencer records
+                const res2 = await apiFetch('/api/admin/influencers');
+                let influencers = [];
+                if (res2.ok) {
+                    influencers = await res2.json();
+                }
+                // Merge: add hasProfile and influencerId to users, and fetch coupons
+                const merged = await Promise.all(users.map(async (user: any) => {
+                    const influencer = influencers.find((inf: any) => inf.userId === user._id);
+                    let coupons = [];
+                    if (influencer) {
+                        try {
+                            // Use the same endpoint as viewDashboard to get coupons
+                            const dashboardRes = await apiFetch(`/api/influencer/dashboard?userId=${user._id}`);
+                            if (dashboardRes.ok) {
+                                const dashboardData = await dashboardRes.json();
+                                coupons = dashboardData.coupons || [];
+                            }
+                        } catch (e) {
+                            console.error('Failed to fetch dashboard for influencer', user._id, e);
+                        }
+                    }
+                    return {
+                        ...user,
+                        hasProfile: !!influencer,
+                        influencerId: influencer?._id,
+                        coupons: coupons
+                    };
+                }));
+                setInfluencers(merged);
+            }
+        } catch (e) {
+            console.error('Failed to load influencers', e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const makeCustomer = async (user: any) => {
+        try {
+            const res = await apiFetch(`/api/admin/users/${user._id}/role`, {
+                method: 'PATCH',
+                body: JSON.stringify({ role: 'customer' })
+            });
+            if (res.ok) {
+                loadInfluencers();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to update user role');
+            }
+        } catch (e) {
+            console.error('Error updating user role', e);
+            alert('Failed to update user role');
+        }
+    };
+
+    const createInfluencer = async () => {
+        if (!formData.email || !formData.couponCode || !formData.customerDiscountType || !formData.customerDiscountValue || !formData.commissionPercentage) {
+            alert('Please fill all required fields: email, coupon code, customer discount type, customer discount value, commission percentage');
+            return;
+        }
+        try {
+            const res = await apiFetch('/api/admin/influencers', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+            if (res.ok) {
+                loadInfluencers();
+                setShowCreateInfluencer(false);
+                setFormData({
+                    email: '',
+                    name: '',
+                    couponCode: '',
+                    customerDiscountType: 'percentage',
+                    customerDiscountValue: '',
+                    commissionPercentage: '',
+                    validityType: 'unlimited',
+                    expiryDate: '2099-12-31T23:59',
+                    totalUsageLimit: '',
+                    perUserLimit: '1',
+                    showOrderAmount: false
+                });
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to create influencer');
+            }
+        } catch (e) {
+            console.error('Error creating influencer', e);
+            alert('Failed to create influencer');
+        }
+    };
+
+    const updateInfluencer = async (id: string, updates: any) => {
+        try {
+            const res = await apiFetch(`/api/admin/influencers/${id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(updates)
+            });
+            if (res.ok) {
+                loadInfluencers();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to update influencer');
+            }
+        } catch (e) {
+            console.error('Error updating influencer', e);
+            alert('Failed to update influencer');
+        }
+    };
+
+    const createDefaultCoupon = async (user: any) => {
+        const defaultData = {
+            email: user.email,
+            name: user.name || '',
+            couponCode: user.name ? user.name.toUpperCase().replace(/\s+/g, '') + '10' : 'COUPON10',
+            customerDiscountType: 'percentage',
+            customerDiscountValue: '10',
+            commissionPercentage: '5',
+            validityType: 'unlimited',
+            expiryDate: '2099-12-31T23:59',
+            totalUsageLimit: '',
+            perUserLimit: '1',
+            showOrderAmount: false
+        };
+        try {
+            const res = await apiFetch('/api/admin/influencers', {
+                method: 'POST',
+                body: JSON.stringify(defaultData)
+            });
+            if (res.ok) {
+                loadInfluencers();
+                alert('Coupon created for influencer');
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to create coupon');
+            }
+        } catch (e) {
+            console.error('Error creating coupon', e);
+            alert('Failed to create coupon');
+        }
+    };
+
+    const setupInfluencerProfile = (user: any) => {
+        setFormData({
+            email: user.email,
+            name: user.name || '',
+            couponCode: '',
+            customerDiscountType: 'percentage',
+            customerDiscountValue: '',
+            commissionPercentage: '',
+            validityType: 'unlimited',
+            expiryDate: '2099-12-31T23:59',
+            totalUsageLimit: '',
+            perUserLimit: '1',
+            showOrderAmount: false
+        });
+        setShowCreateInfluencer(true);
+    };
+
+    const createCouponForInfluencer = (user: any) => {
+        if (!user.influencerId) {
+            alert('Influencer profile not found. Please refresh the page.');
+            return;
+        }
+        setSelectedInfluencerForCoupon(user);
+        setCouponFormData({
+            couponCode: '',
+            discountType: 'percentage',
+            discountValue: '',
+            minOrderValue: '',
+            maxDiscount: '',
+            couponUsageType: 'unlimited',
+            totalUsageLimit: '',
+            perUserLimit: '1',
+            expiryDate: '',
+            status: 'active',
+            commissionPercentage: ''
+        });
+        setShowCreateCoupon(true);
+    };
+
+    const createCoupon = async () => {
+        if (!selectedInfluencerForCoupon) {
+            alert('No influencer selected. Please try again.');
+            return;
+        }
+        
+        if (!couponFormData.couponCode || !couponFormData.discountType || !couponFormData.discountValue || !couponFormData.couponUsageType || !couponFormData.commissionPercentage) {
+            alert('Please fill all required fields including commission percentage');
+            return;
+        }
+
+        // Validation
+        if (couponFormData.couponUsageType === 'limited') {
+            if (!couponFormData.totalUsageLimit || !couponFormData.expiryDate) {
+                alert('Limited coupons require total usage limit and expiry date');
+                return;
+            }
+        } else {
+            if (couponFormData.expiryDate) {
+                alert('Unlimited coupons cannot have expiry date');
+                return;
+            }
+        }
+
+        try {
+            const res = await apiFetch(`/api/admin/influencers/${selectedInfluencerForCoupon.influencerId}/coupons`, {
+                method: 'POST',
+                body: JSON.stringify(couponFormData)
+            });
+            if (res.ok) {
+                setShowCreateCoupon(false);
+                setCouponFormData({
+                    couponCode: '',
+                    discountType: 'percentage',
+                    discountValue: '',
+                    minOrderValue: '',
+                    maxDiscount: '',
+                    couponUsageType: 'unlimited',
+                    totalUsageLimit: '',
+                    perUserLimit: '1',
+                    expiryDate: '',
+                    status: 'active',
+                    commissionPercentage: ''
+                });
+                alert('Coupon created successfully');
+                // Optionally reload influencers or update state
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to create coupon');
+            }
+        } catch (e) {
+            console.error('Error creating coupon', e);
+            alert('Failed to create coupon');
+        }
+    };
+
+    const viewDashboard = async (influencer: any) => {
+        if (!influencer.influencerId) {
+            alert('Influencer profile not found. Please refresh the page.');
+            return;
+        }
+        
+        try {
+            const res = await apiFetch(`/api/admin/influencers/${influencer.influencerId}/dashboard`);
+            if (res.ok) {
+                const data = await res.json();
+                setSelectedInfluencer(data);
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to load dashboard');
+                setSelectedInfluencer(null);
+            }
+        } catch (e) {
+            console.error('Error loading dashboard', e);
+            alert('Failed to load dashboard');
+            setSelectedInfluencer(null);
+        }
+    };
+
+    const updateCouponStatus = async (influencerId: string, couponId: string, newStatus: boolean) => {
+        try {
+            const res = await apiFetch(`/api/admin/influencers/${influencerId}/coupons/${couponId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ active: newStatus })
+            });
+            if (res.ok) {
+                loadInfluencers(); // Refresh the data
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to update coupon status');
+            }
+        } catch (e) {
+            console.error('Error updating coupon status', e);
+            alert('Failed to update coupon status');
+        }
+    };
+
+    const deleteCoupon = async (influencerId: string, couponId: string) => {
+        if (!confirm('Are you sure you want to delete this influencer coupon? This action cannot be undone.')) return;
+        try {
+            const res = await apiFetch(`/api/admin/influencers/${influencerId}/coupons/${couponId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                loadInfluencers(); // Refresh the data
+                alert('Coupon deleted successfully');
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to delete coupon');
+            }
+        } catch (e) {
+            console.error('Error deleting coupon', e);
+            alert('Failed to delete coupon');
+        }
+    };
+
+    if (user?.role !== 'admin') {
+        return (
+            <div className="text-center py-8">
+                <p className="text-purple-200">Access denied. Admin privileges required.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-xl font-semibold text-white">Influencer Management</h2>
+            </div>
+
+            {loading ? (
+                <div className="text-center py-8">
+                    <p className="text-purple-200">Loading influencers...</p>
+                </div>
+            ) : (
+                <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-[#07001b] border-b border-purple-700/40">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Email</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Name</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Coupons</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {influencers.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="px-4 py-8 text-center text-purple-200/70">
+                                        No influencers found. Assign influencer role to users in Employee Management section.
+                                    </td>
+                                </tr>
+                            ) : (
+                                influencers.map((user) => (
+                                    <tr key={user._id} className="border-b border-purple-700/20">
+                                        <td className="px-4 py-3 text-sm text-white">{user.email}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">{user.name || 'N/A'}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">
+                                            {user.coupons && user.coupons.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {user.coupons.map((coupon: any, index: number) => (
+                                                        <div key={index} className="flex items-center justify-between gap-2 p-2 bg-[#050014] rounded">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono text-xs">{coupon.code}</span>
+                                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                                                    coupon.active ? 'text-green-300 bg-green-900/40' : 'text-red-300 bg-red-900/40'
+                                                                }`}>
+                                                                    {coupon.active ? 'Active' : 'Inactive'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex gap-1">
+                                                                <Button
+                                                                    size="sm"
+                                                                    onClick={() => updateCouponStatus(user.influencerId, coupon._id, !coupon.active)}
+                                                                    className={`text-xs px-2 py-1 border ${
+                                                                        coupon.active 
+                                                                            ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' 
+                                                                            : 'bg-green-600 hover:bg-green-700 text-white border-green-600'
+                                                                    }`}
+                                                                >
+                                                                    {coupon.active ? 'Deactivate' : 'Activate'}
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="destructive"
+                                                                    onClick={() => deleteCoupon(user.influencerId, coupon._id)}
+                                                                    className="text-xs px-2 py-1"
+                                                                >
+                                                                    Delete
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-yellow-400">No Coupons</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex gap-2">
+                                                {!user.hasProfile ? (
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => setupInfluencerProfile(user)}
+                                                        className="bg-purple-600 hover:bg-purple-700"
+                                                    >
+                                                        Create Coupon
+                                                    </Button>
+                                                ) : (
+                                                    <>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => createCouponForInfluencer(user)}
+                                                            className="bg-green-600 hover:bg-green-700"
+                                                        >
+                                                            Create Coupon
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => viewDashboard(user)}
+                                                            className="text-purple-200 hover:bg-purple-900/40"
+                                                        >
+                                                            View
+                                                        </Button>
+                                                    </>
+                                                )}
+                                                <Button
+                                                    size="sm"
+                                                    variant="destructive"
+                                                    onClick={() => makeCustomer(user)}
+                                                    className="ml-2"
+                                                >
+                                                    Make Customer
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* Create Influencer Dialog */}
+            <Dialog open={showCreateInfluencer} onOpenChange={setShowCreateInfluencer}>
+                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50 max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-purple-100">Setup Influencer Profile</DialogTitle>
+                        <DialogDescription className="text-purple-300/80">
+                            Configure coupon code, commission rates, and other settings for this influencer.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Name</label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="Full Name"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Email</label>
+                            <input
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="customer@example.com"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Coupon Code</label>
+                            <input
+                                type="text"
+                                value={formData.couponCode}
+                                onChange={(e) => setFormData({ ...formData, couponCode: e.target.value.toUpperCase() })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white font-mono"
+                                placeholder="JOHN10"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Customer Discount Type</label>
+                            <select
+                                value={formData.customerDiscountType}
+                                onChange={(e) => setFormData({ ...formData, customerDiscountType: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                            >
+                                <option value="flat">Flat Amount</option>
+                                <option value="percentage">Percentage</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Customer Discount Value</label>
+                            <input
+                                type="number"
+                                value={formData.customerDiscountValue}
+                                onChange={(e) => setFormData({ ...formData, customerDiscountValue: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="10"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Commission Percentage</label>
+                            <input
+                                type="number"
+                                value={formData.commissionPercentage}
+                                onChange={(e) => setFormData({ ...formData, commissionPercentage: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="5"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Validity Type</label>
+                            <select
+                                value={formData.validityType}
+                                onChange={(e) => {
+                                    const newValidityType = e.target.value;
+                                    setFormData({ 
+                                        ...formData, 
+                                        validityType: newValidityType,
+                                        expiryDate: newValidityType === 'unlimited' ? '2099-12-31T23:59' : formData.expiryDate
+                                    });
+                                }}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                            >
+                                <option value="unlimited">Unlimited</option>
+                                <option value="limited">Limited</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Expiry Date</label>
+                            <input
+                                type="datetime-local"
+                                value={formData.expiryDate}
+                                onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                readOnly={formData.validityType === 'unlimited'}
+                            />
+                        </div>
+                        {formData.validityType === 'limited' && (
+                            <div>
+                                <label className="block text-sm font-medium text-purple-200 mb-1">Total Usage Limit</label>
+                                <input
+                                    type="number"
+                                    value={formData.totalUsageLimit}
+                                    onChange={(e) => setFormData({ ...formData, totalUsageLimit: e.target.value })}
+                                    className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                    placeholder="1000"
+                                />
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Per User Limit</label>
+                            <input
+                                type="number"
+                                value={formData.perUserLimit}
+                                onChange={(e) => setFormData({ ...formData, perUserLimit: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="1"
+                            />
+                        </div>
+                        <div className="col-span-2">
+                            <label className="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.showOrderAmount}
+                                    onChange={(e) => setFormData({ ...formData, showOrderAmount: e.target.checked })}
+                                    className="mr-2"
+                                />
+                                <span className="text-sm font-medium text-purple-200">Show Order Purchase Amount to Influencer</span>
+                            </label>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowCreateInfluencer(false)}>Cancel</Button>
+                        <Button onClick={createInfluencer} className="bg-purple-600 hover:bg-purple-700">
+                            Create Influencer
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Influencer Dashboard Dialog */}
+            <Dialog open={!!selectedInfluencer} onOpenChange={() => setSelectedInfluencer(null)}>
+                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50 max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-purple-100">Influencer Dashboard</DialogTitle>
+                    </DialogHeader>
+                    {selectedInfluencer && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-[#050014] p-4 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-white mb-2">Influencer Info</h3>
+                                    <p className="text-purple-200"><strong>Name:</strong> {selectedInfluencer.user?.name || 'N/A'}</p>
+                                    <p className="text-purple-200"><strong>Email:</strong> {selectedInfluencer.user?.email || 'N/A'}</p>
+                                    <p className="text-purple-200"><strong>Coupon Codes:</strong></p>
+                                    {selectedInfluencer.coupons && selectedInfluencer.coupons.length > 0 ? (
+                                        <div className="space-y-2 mt-2">
+                                            {selectedInfluencer.coupons.map((coupon: any, index: number) => (
+                                                <div key={index} className="flex items-center gap-2">
+                                                    <span className="font-mono">{coupon.code}</span>
+                                                    <span className="text-sm text-purple-300">({coupon.type === 'percentage' ? `${coupon.value}%` : `$${coupon.value}`} off)</span>
+                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                                        coupon.active ? 'text-green-300 bg-green-900/40' : 'text-red-300 bg-red-900/40'
+                                                    }`}>
+                                                        {coupon.active ? 'Active' : 'Inactive'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="text-purple-300">No coupons</span>
+                                    )}
+                                </div>
+                                <div className="bg-[#050014] p-4 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-white mb-2">Earnings & Stats</h3>
+                                    <p className="text-purple-200"><strong>Total Orders:</strong> {selectedInfluencer.stats?.totalOrders || 0}</p>
+                                    <p className="text-purple-200"><strong>Total Commission:</strong> ₹{(selectedInfluencer.stats?.totalCommissionEarned || 0).toFixed(2)}</p>
+                                    <p className="text-purple-200"><strong>Today Commission:</strong> ₹{(selectedInfluencer.stats?.todayCommission || 0).toFixed(2)}</p>
+                                    <p className="text-purple-200"><strong>This Month Commission:</strong> ₹{(selectedInfluencer.stats?.thisMonthCommission || 0).toFixed(2)}</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-semibold text-white mb-4">Order-wise Details</h3>
+                                <div className="bg-[#050014] rounded-lg overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-[#03000a] border-b border-purple-700/40">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Order ID</th>
+                                                {selectedInfluencer.showOrderAmount && (
+                                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Order Amount</th>
+                                                )}
+                                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Commission Earned</th>
+                                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Order Status</th>
+                                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {selectedInfluencer.orders && selectedInfluencer.orders.length > 0 ? selectedInfluencer.orders.map((order: any) => (
+                                                <tr key={order._id} className="border-b border-purple-700/20">
+                                                    <td className="px-4 py-3 text-sm text-white font-mono">{order._id}</td>
+                                                    {selectedInfluencer.showOrderAmount && (
+                                                        <td className="px-4 py-3 text-sm text-purple-200">₹{order.total?.toFixed(2) || 'N/A'}</td>
+                                                    )}
+                                                    <td className="px-4 py-3 text-sm text-green-400 font-semibold">₹{order.commissionAmount?.toFixed(2) || '0.00'}</td>
+                                                    <td className="px-4 py-3 text-sm text-purple-200">{order.status}</td>
+                                                    <td className="px-4 py-3 text-sm text-purple-200">{new Date(order.createdAt).toLocaleDateString()}</td>
+                                                </tr>
+                                            )) : (
+                                                <tr>
+                                                    <td colSpan={selectedInfluencer.showOrderAmount ? 5 : 4} className="px-4 py-8 text-center text-purple-200/70">
+                                                        No orders found
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Coupon Dialog */}
+            <Dialog open={showCreateCoupon} onOpenChange={(open) => {
+                setShowCreateCoupon(open);
+                if (!open) {
+                    setSelectedInfluencerForCoupon(null);
+                }
+            }}>
+                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50 max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-purple-100">Create Coupon for {selectedInfluencerForCoupon ? (selectedInfluencerForCoupon.name || selectedInfluencerForCoupon.email) : 'Influencer'}</DialogTitle>
+                        <DialogDescription className="text-purple-300/80">
+                            Create a new coupon code for this influencer.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Coupon Usage Type</label>
+                            <select
+                                value={couponFormData.couponUsageType}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, couponUsageType: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                            >
+                                <option value="unlimited">Unlimited Coupon</option>
+                                <option value="limited">Limited Coupon</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Coupon Code</label>
+                            <input
+                                type="text"
+                                value={couponFormData.couponCode}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, couponCode: e.target.value.toUpperCase() })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white font-mono"
+                                placeholder="SUMMER10"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Discount Type</label>
+                            <select
+                                value={couponFormData.discountType}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, discountType: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                            >
+                                <option value="percentage">Percentage</option>
+                                <option value="flat">Flat Amount</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Discount Value</label>
+                            <input
+                                type="number"
+                                value={couponFormData.discountValue}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, discountValue: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder={couponFormData.discountType === 'percentage' ? '10' : '50'}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Minimum Order Value</label>
+                            <input
+                                type="number"
+                                value={couponFormData.minOrderValue}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, minOrderValue: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="100"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Maximum Discount (Optional)</label>
+                            <input
+                                type="number"
+                                value={couponFormData.maxDiscount}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, maxDiscount: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="500"
+                            />
+                        </div>
+                        {couponFormData.couponUsageType === 'limited' && (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-purple-200 mb-1">Total Usage Limit</label>
+                                    <input
+                                        type="number"
+                                        value={couponFormData.totalUsageLimit}
+                                        onChange={(e) => setCouponFormData({ ...couponFormData, totalUsageLimit: e.target.value })}
+                                        className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                        placeholder="100"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-purple-200 mb-1">Expiry Date</label>
+                                    <input
+                                        type="datetime-local"
+                                        value={couponFormData.expiryDate}
+                                        onChange={(e) => setCouponFormData({ ...couponFormData, expiryDate: e.target.value })}
+                                        className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                        required
+                                    />
+                                </div>
+                            </>
+                        )}
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Per User Usage Limit</label>
+                            <input
+                                type="number"
+                                value={couponFormData.perUserLimit}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, perUserLimit: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="1"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Commission Percentage</label>
+                            <input
+                                type="number"
+                                value={couponFormData.commissionPercentage}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, commissionPercentage: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                                placeholder="5"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-purple-200 mb-1">Status</label>
+                            <select
+                                value={couponFormData.status}
+                                onChange={(e) => setCouponFormData({ ...couponFormData, status: e.target.value })}
+                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
+                            >
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="outline" className="bg-transparent border-purple-600 text-purple-200 hover:bg-purple-900/40">
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <Button onClick={createCoupon} className="bg-purple-600 hover:bg-purple-700">
+                            Create Coupon
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1374,7 +2755,7 @@ function CustomersManager() {
             const res = await apiFetch('/api/admin/users');
             const data = await res.json();
             // Filter only customers and normalize array
-            const customers = Array.isArray(data) ? data.filter(u => u.role === 'customer') : [];
+            const customers = Array.isArray(data) ? data.filter((u: any) => u.role === 'customer') : [];
             setUsers(customers);
         } catch (e) {
             console.error('Could not load customers', e);
@@ -1469,3 +2850,113 @@ function CustomersManager() {
         </div>
     );
 }
+
+/* -------------- WAITING CUSTOMERS MANAGER -------------- */
+
+function WaitingCustomersManager() {
+    const { apiFetch } = useAuthContext();
+    const [waitingCustomers, setWaitingCustomers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        loadWaitingCustomers();
+    }, []);
+
+    const loadWaitingCustomers = async () => {
+        try {
+            const res = await apiFetch('/api/waiting-customers');
+            if (res.ok) {
+                const data = await res.json();
+                setWaitingCustomers(data);
+            }
+        } catch (e) {
+            console.error('Failed to load waiting customers', e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const deleteWaitingCustomer = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this waiting customer?')) return;
+        try {
+            const res = await apiFetch(`/api/waiting-customers/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                setWaitingCustomers(prev => prev.filter(c => c._id !== id));
+            }
+        } catch (e) {
+            console.error('Failed to delete waiting customer', e);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl p-6">
+                <h2 className="text-xl font-semibold text-purple-200 mb-4">Waiting Customers</h2>
+                <p className="text-purple-300/80 mb-4">
+                    Customers who have requested notifications when delivery becomes available in their area.
+                </p>
+                
+                {loading ? (
+                    <div className="text-center py-8">
+                        <p className="text-purple-200">Loading waiting customers...</p>
+                    </div>
+                ) : waitingCustomers.length === 0 ? (
+                    <div className="text-center py-8">
+                        <p className="text-purple-200">No waiting customers yet.</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-[#07001b] border-b border-purple-700/40">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Name</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Phone</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">WhatsApp</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">District</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Address</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Items</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Date</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {waitingCustomers.map((customer) => (
+                                    <tr key={customer._id} className="border-b border-purple-700/20">
+                                        <td className="px-4 py-3 text-sm text-white">{customer.name}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">{customer.phone}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">{customer.whatsappNumber}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">{customer.district}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">{customer.address}</td>
+                                        <td className="px-4 py-3 text-sm text-purple-200">
+                                            {customer.items?.length > 0 ? 
+                                                customer.items.map((item: any, i: number) => (
+                                                    <div key={i} className="text-xs">{item.name} x{item.quantity}</div>
+                                                )) : 
+                                                'N/A'
+                                            }
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-purple-300">
+                                            {new Date(customer.createdAt).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                onClick={() => deleteWaitingCustomer(customer._id)}
+                                                className="text-xs"
+                                            >
+                                                Delete
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+
