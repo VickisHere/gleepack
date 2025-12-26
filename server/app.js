@@ -7,6 +7,9 @@ var dotenv = require('dotenv');
 var cors = require('cors');
 var passport = require('passport');
 var session = require('express-session');
+var rateLimit = require('express-rate-limit');
+var helmet = require('helmet');
+var compression = require('compression');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -28,7 +31,74 @@ dotenv.config();
 
 var app = express();
 
-app.use(cors());
+// Security middleware - must be first
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      scriptSrc: ["'self'"],
+      connectSrc: ["'self'", "https://api.razorpay.com", "wss:", "ws:"],
+    },
+  },
+}));
+
+// Compression middleware
+app.use(compression());
+
+// Response time logging
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms`);
+  });
+  next();
+});
+
+// Timeout middleware (30 seconds)
+app.use((req, res, next) => {
+  res.setTimeout(30000, () => {
+    res.status(408).json({ error: 'Request timeout' });
+  });
+  next();
+});
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  message: {
+    error: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter rate limiting for auth routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 auth requests per windowMs
+  message: {
+    error: 'Too many authentication attempts, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting
+app.use('/api/auth', authLimiter);
+app.use('/api/', limiter);
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
 
 // Session configuration (required for Passport.js)
 app.use(session({
@@ -41,7 +111,46 @@ app.use(session({
   }
 }));
 
-// initialize MongoDB connection (reads MONGODB_URI from environment via server/.env)
+// Memory monitoring and automatic cleanup
+setInterval(() => {
+  const memUsage = process.memoryUsage();
+  const memUsageMB = {
+    rss: Math.round(memUsage.rss / 1024 / 1024),
+    heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
+    heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+    external: Math.round(memUsage.external / 1024 / 1024),
+  };
+
+  // Log memory usage every 5 minutes
+  if (Math.random() < 0.1) { // Log ~10% of the time to avoid spam
+    console.log('📊 Memory Usage (MB):', memUsageMB);
+  }
+
+  // Force garbage collection if heap usage is too high (only in development)
+  if (process.env.NODE_ENV !== 'production' && memUsageMB.heapUsed > 500) {
+    if (global.gc) {
+      console.log('🧹 Running garbage collection...');
+      global.gc();
+    }
+  }
+}, 300000); // Check every 5 minutes
+
+// Request timeout middleware
+app.use((req, res, next) => {
+  // Set timeout for all requests (30 seconds)
+  req.setTimeout(30000, () => {
+    console.warn(`Request timeout: ${req.method} ${req.url}`);
+    if (!res.headersSent) {
+      res.status(408).json({ error: 'Request timeout' });
+    }
+  });
+
+  res.setTimeout(30000, () => {
+    console.warn(`Response timeout: ${req.method} ${req.url}`);
+  });
+
+  next();
+});
 (async () => {
   try {
     const mongo = require('./lib/mongoClient');
@@ -93,7 +202,6 @@ app.use('/api/health', healthRouter);
 app.use('/api/stream', streamRouter);
 app.use('/api/influencer', influencerRouter);
 app.use('/api/waiting-customers', waitingCustomersRouter);
-app.use('/api/waiting-customers', waitingCustomersRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -105,16 +213,57 @@ app.use(function(err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
+
   // log full error on server for debugging
-  console.error('Server error:', err && err.stack ? err.stack : err);
+  console.error('Server error:', {
+    message: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    timestamp: new Date().toISOString()
+  });
+
   // If this is an API request, return JSON
   if (req.path && req.path.startsWith('/api')) {
-    return res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+    return res.status(err.status || 500).json({
+      error: err.message || 'Internal Server Error',
+      ...(req.app.get('env') === 'development' && { stack: err.stack })
+    });
   }
 
   // render the error page for non-API requests
   res.status(err.status || 500);
   res.render('error');
+});
+
+// Global error handlers for uncaught exceptions and unhandled rejections
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Don't exit the process in production, just log it
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process in production, just log it
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  process.exit(0);
 });
 
 module.exports = app;

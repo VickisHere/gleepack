@@ -21,39 +21,43 @@ app.set('port', port);
 
 var server = http.createServer(app);
 
-// attach Socket.IO for real-time events
-try {
-  const { Server } = require('socket.io');
-  const io = new Server(server, {
-    cors: { origin: process.env.CLIENT_ORIGIN || '*', methods: ['GET', 'POST', 'PATCH'] }
-  });
-  // Socket authentication
-  io.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (!token) {
-      return next(new Error('Authentication error'));
-    }
-    try {
-      const jwt = require('jsonwebtoken');
-      const payload = jwt.verify(token, process.env.JWT_SECRET || 'replace_this_secret_in_env');
-      socket.user = payload;
-      next();
-    } catch (err) {
-      next(new Error('Authentication error'));
-    }
-  });
-  // make io available on app if needed
-  app.set('io', io);
-  // forward internal events to socket.io clients
-  const events = require('../lib/events');
-  events.on('order_created', (order) => { console.log('emitting order_created', order._id); io.emit('order_created', order); });
-  events.on('order_updated', (order) => { console.log('emitting order_updated', order._id); io.emit('order_updated', order); });
-  events.on('product_created', (p) => { console.log('emitting product_created', p.id); io.emit('product_created', p); });
-  events.on('product_updated', (p) => { console.log('emitting product_updated', p.id); io.emit('product_updated', p); });
-  events.on('product_deleted', (id) => { console.log('emitting product_deleted', id); io.emit('product_deleted', id); });
-  console.log('📱 Socket.IO initialized');
-} catch (e) {
-  console.warn('⚠️  Socket.IO not initialized:', e && e.message);
+// attach Socket.IO for real-time events (skip in serverless environments like Vercel)
+if (!process.env.VERCEL) {
+  try {
+    const { Server } = require('socket.io');
+    const io = new Server(server, {
+      cors: { origin: process.env.CLIENT_ORIGIN || '*', methods: ['GET', 'POST', 'PATCH'] }
+    });
+    // Socket authentication
+    io.use((socket, next) => {
+      const token = socket.handshake.auth?.token;
+      if (!token) {
+        return next(new Error('Authentication error'));
+      }
+      try {
+        const jwt = require('jsonwebtoken');
+        const payload = jwt.verify(token, process.env.JWT_SECRET || 'replace_this_secret_in_env');
+        socket.user = payload;
+        next();
+      } catch (err) {
+        next(new Error('Authentication error'));
+      }
+    });
+    // make io available on app if needed
+    app.set('io', io);
+    // forward internal events to socket.io clients
+    const events = require('../lib/events');
+    events.on('order_created', (order) => { console.log('emitting order_created', order._id); io.emit('order_created', order); });
+    events.on('order_updated', (order) => { console.log('emitting order_updated', order._id); io.emit('order_updated', order); });
+    events.on('product_created', (p) => { console.log('emitting product_created', p.id); io.emit('product_created', p); });
+    events.on('product_updated', (p) => { console.log('emitting product_updated', p.id); io.emit('product_updated', p); });
+    events.on('product_deleted', (id) => { console.log('emitting product_deleted', id); io.emit('product_deleted', id); });
+    console.log('📱 Socket.IO initialized');
+  } catch (e) {
+    console.warn('⚠️  Socket.IO not initialized:', e && e.message);
+  }
+} else {
+  console.log('📱 Socket.IO skipped in serverless environment');
 }
 
 /**
