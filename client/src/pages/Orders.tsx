@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useNetworkRequest } from '@/hooks/useNetworkRequest';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -15,27 +16,36 @@ import {
 import { io } from 'socket.io-client';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
+import { LoadingSpinner, NetworkError, ConnectionError } from '@/components/ui/loading-states';
 
 const Orders: React.FC = () => {
   const { apiFetch, isAuthenticated, token, user } = useAuthContext();
   const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const socketRef = useRef<any | null>(null);
   const navigate = useNavigate();
+  const { isLoading, error, errorType, executeRequest, clearError } = useNetworkRequest();
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-    if (!apiFetch) return;
-    setLoading(true);
-    apiFetch('/api/orders')
-      .then(async (r) => r.ok ? await r.json() : [])
-      .then((data) => setOrders(Array.isArray(data) ? data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []))
-      .catch(() => setOrders([]))
-      .finally(() => setLoading(false));
-  }, [apiFetch, isAuthenticated]);
+
+    executeRequest(
+      async () => {
+        const response = await apiFetch('/api/orders');
+        if (response.ok) {
+          const data = await response.json();
+          setOrders(Array.isArray(data) ? data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []);
+        } else {
+          setOrders([]);
+        }
+      },
+      {
+        onError: () => setOrders([])
+      }
+    );
+  }, [apiFetch, isAuthenticated, executeRequest]);
 
   if (!isAuthenticated) {
     return null;
@@ -108,12 +118,22 @@ const Orders: React.FC = () => {
       <div className="section-padding container-custom">
         <h1 className="text-2xl font-bold mb-6">Your Orders</h1>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-8 w-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-              <p className="text-sm text-muted-foreground">Loading your orders...</p>
-            </div>
+        {isLoading ? (
+          <div className="py-12">
+            <LoadingSpinner message="Fetching your orders..." />
+          </div>
+        ) : error ? (
+          <div className="py-12">
+            {errorType === 'network' && <NetworkError onRetry={() => window.location.reload()} />}
+            {errorType === 'connection' && <ConnectionError onRetry={() => window.location.reload()} />}
+            {errorType === 'server' && (
+              <div className="text-center">
+                <div className="text-4xl mb-4">⚠️</div>
+                <p className="text-lg font-semibold mb-2">Unable to load orders</p>
+                <p className="text-muted-foreground mb-4">{error}</p>
+                <Button onClick={() => window.location.reload()}>Try Again</Button>
+              </div>
+            )}
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-gray-300 rounded-2xl bg-gray-50">

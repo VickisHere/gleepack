@@ -7,6 +7,7 @@ import Layout from '@/components/layout/Layout';
 import { useState, useEffect } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { LoadingSpinner } from '@/components/ui/loading-states';
 
 const KitDetails = () => {
   const { id } = useParams();
@@ -78,7 +79,7 @@ const KitDetails = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="section-padding text-center">Loading...</div>
+        <LoadingSpinner message="Loading kit details..." />
       </Layout>
     );
   }

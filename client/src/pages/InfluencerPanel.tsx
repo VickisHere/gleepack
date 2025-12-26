@@ -7,7 +7,7 @@ import { io } from 'socket.io-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function InfluencerPanel() {
-  const { apiFetch, user } = useAuthContext();
+  const { apiFetch, user, token } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);

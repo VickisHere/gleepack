@@ -72,9 +72,11 @@ const BottomNav = () => {
       case 'dba':
         return { path: '/dba', label: 'DBA', icon: Database };
       case 'delivery':
-        return { path: '/delivery', label: 'DB', icon: Truck };
+        return { path: '/delivery', label: 'GDM', icon: Truck };
       case 'influencer':
-        return { path: '/influencer', label: 'Dashboard', icon: Star };
+        return { path: '/influencer', label: 'GPI', icon: Star };
+      case 'gim':
+        return { path: '/gim', label: 'GIM', icon: DollarSign };
       default:
         return null;
     }

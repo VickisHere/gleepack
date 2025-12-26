@@ -3,6 +3,7 @@ import Layout from '@/components/layout/Layout';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { LoadingSpinner } from '@/components/ui/loading-states';
 
 const STATUS_STAGES = [
   'received',
@@ -58,7 +59,7 @@ export default function OrderView() {
 
   if (loading) return (
     <Layout>
-      <div className="section-padding container-custom text-center">Loading...</div>
+      <LoadingSpinner message="Loading order details..." />
     </Layout>
   );
 

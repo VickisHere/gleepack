@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Globe, User } from 'lucide-react';
+import { ShoppingCart, Globe, User, Shield, Database, Truck, Star, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
@@ -53,6 +53,27 @@ const Header = () => {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const getRoleButton = () => {
+    if (!isAuthenticated || !user?.role) return null;
+
+    switch (user.role) {
+      case 'admin':
+        return { path: '/admin', label: 'Admin Panel', icon: Shield };
+      case 'dba':
+        return { path: '/dba', label: 'DBA', icon: Database };
+      case 'delivery':
+        return { path: '/delivery', label: 'GDM', icon: Truck };
+      case 'influencer':
+        return { path: '/influencer', label: 'GPI', icon: Star };
+      case 'gim':
+        return { path: '/gim', label: 'GIM', icon: DollarSign };
+      default:
+        return null;
+    }
+  };
+
+  const roleButton = getRoleButton();
 
   return (
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
@@ -123,6 +144,21 @@ const Header = () => {
                   {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
                 </div>
               </Button>
+
+              {/* Role Dashboard Button - Only show on desktop where bottom nav is hidden */}
+              {roleButton && (
+                <div className="hidden lg:block">
+                  <Link to={roleButton.path}>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="text-xs lg:text-sm px-2 lg:px-3 bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {roleButton.label}
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -203,7 +239,6 @@ const Header = () => {
                       {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
                     </div>
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => logout()} className="text-xs lg:text-sm px-2 lg:px-3">Logout</Button>
                 </div>
               ) : (
                 <div className="hidden md:flex items-center gap-1 lg:gap-2">

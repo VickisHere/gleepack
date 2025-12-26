@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useNetworkRequest } from '@/hooks/useNetworkRequest';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LoadingSpinner, NetworkError, ConnectionError } from '@/components/ui/loading-states';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -17,10 +19,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
   const navigate = useNavigate();
+  const { isLoading, error, errorType, executeRequest, clearError } = useNetworkRequest();
 
   useEffect(() => {
     // Load Google Sign-In script
@@ -42,29 +43,32 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setIsLoading(true);
+    clearError();
 
-    try {
-      if (activeTab === 'login') {
-        await auth.login(email, password);
-      } else {
-        await auth.register(email, password, name);
+    await executeRequest(
+      async () => {
+        if (activeTab === 'login') {
+          await auth.login(email, password);
+        } else {
+          await auth.register(email, password, name);
+        }
+        onClose();
+        navigate('/');
+      },
+      {
+        onError: (err) => {
+          // Error is already handled by the hook
+          console.error('Auth error:', err);
+        }
       }
-      onClose();
-      navigate('/');
-    } catch (err: any) {
-      setError(err.message || `${activeTab === 'login' ? 'Login' : 'Registration'} failed`);
-    } finally {
-      setIsLoading(false);
-    }
+    );
   };
 
   const resetForm = () => {
     setEmail('');
     setPassword('');
     setName('');
-    setError(null);
+    clearError();
   };
 
   const switchTab = (tab: 'login' | 'register') => {
@@ -115,9 +119,35 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       required
                     />
                   </div>
-                  {error && <div className="text-sm text-destructive">{error}</div>}
+                  {error && (
+                    <div className="mt-4">
+                      {errorType === 'network' && <NetworkError onRetry={() => handleSubmit({ preventDefault: () => {} } as any)} />}
+                      {errorType === 'connection' && <ConnectionError onRetry={() => handleSubmit({ preventDefault: () => {} } as any)} />}
+                      {errorType === 'server' && (
+                        <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg">
+                          <div className="text-3xl mb-2">🚀</div>
+                          <p className="text-sm font-medium text-orange-800 mb-1">
+                            Almost there!
+                          </p>
+                          <p className="text-xs text-orange-700 leading-relaxed">
+                            {error}
+                          </p>
+                          <p className="text-xs text-orange-600 mt-2">
+                            Our team is working hard to fix this. Please try again!
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                    {isLoading ? 'Signing in...' : 'Sign In'}
+                    {isLoading ? (
+                      <div className="flex items-center gap-2">
+                        <LoadingSpinner size="sm" />
+                        {activeTab === 'login' ? 'Signing in...' : 'Creating account...'}
+                      </div>
+                    ) : (
+                      activeTab === 'login' ? 'Sign In' : 'Create Account'
+                    )}
                   </Button>
                 </form>
 
@@ -199,9 +229,35 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       required
                     />
                   </div>
-                  {error && <div className="text-sm text-destructive">{error}</div>}
+                  {error && (
+                    <div className="mt-4">
+                      {errorType === 'network' && <NetworkError onRetry={() => handleSubmit({ preventDefault: () => {} } as any)} />}
+                      {errorType === 'connection' && <ConnectionError onRetry={() => handleSubmit({ preventDefault: () => {} } as any)} />}
+                      {errorType === 'server' && (
+                        <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg">
+                          <div className="text-3xl mb-2">🚀</div>
+                          <p className="text-sm font-medium text-orange-800 mb-1">
+                            Almost there!
+                          </p>
+                          <p className="text-xs text-orange-700 leading-relaxed">
+                            {error}
+                          </p>
+                          <p className="text-xs text-orange-600 mt-2">
+                            Our team is working hard to fix this. Please try again!
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                    {isLoading ? 'Creating account...' : 'Create Account'}
+                    {isLoading ? (
+                      <div className="flex items-center gap-2">
+                        <LoadingSpinner size="sm" />
+                        {activeTab === 'login' ? 'Signing in...' : 'Creating account...'}
+                      </div>
+                    ) : (
+                      activeTab === 'login' ? 'Sign In' : 'Create Account'
+                    )}
                   </Button>
                 </form>
 

@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { LoadingSpinner } from '@/components/ui/loading-states';
 
 type Props = { open: boolean; onOpenChange: (v: boolean) => void };
 
@@ -51,7 +52,7 @@ const ProfileModal: React.FC<Props> = ({ open, onOpenChange }) => {
         </DialogHeader>
         <div className="p-4">
           {loading ? (
-            <div>Loading...</div>
+            <LoadingSpinner message="Loading profile..." />
           ) : profile ? (
             <div className="grid gap-4">
               <div>

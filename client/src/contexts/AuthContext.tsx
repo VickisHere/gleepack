@@ -49,12 +49,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const headers = new Headers(init?.headers || {});
     if (token) headers.set('Authorization', `Bearer ${token}`);
     headers.set('Content-Type', headers.get('Content-Type') || 'application/json');
-    const res = await fetch(url, { ...(init || {}), headers });
-    if (res.status === 401) {
-      clearAuth();
-      throw new Error('Unauthorized');
+
+    try {
+      const res = await fetch(url, { ...(init || {}), headers });
+      if (res.status === 401) {
+        clearAuth();
+        throw new Error('Unauthorized');
+      }
+      return res;
+    } catch (error) {
+      // Check if it's a network error
+      if (!navigator.onLine) {
+        throw new Error('NETWORK_ERROR');
+      }
+      // Check if it's a connection error
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('CONNECTION_ERROR');
+      }
+      throw error;
     }
-    return res;
   }
 
   const clearAuth = () => {
@@ -65,9 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   async function login(email: string, password: string) {
-    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    const res = await apiFetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
@@ -79,14 +91,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function register(email: string, password: string, name?: string) {
-    const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    const res = await apiFetch('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error || 'Register failed');
+      throw new Error(body?.error || 'Registration failed');
     }
     const body = await res.json();
     saveAuth(body.token, body.user);

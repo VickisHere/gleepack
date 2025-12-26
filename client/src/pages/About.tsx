@@ -90,22 +90,27 @@ const About = () => {
             <div className="space-y-6">
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
-                    <span className="text-2xl">👨‍👩‍👧‍👦</span>
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-200 to-indigo-100 flex items-center justify-center">
+                    <span className="text-2xl">👨‍💼</span>
                   </div>
                   <div>
                     <h3 className="font-display font-semibold text-lg">
-                      {language === 'en' ? 'Family First' : 'परिवार पहले'}
+                      {language === 'en' ? 'Co-Founder & CEO' : 'को-फाउंडर और सीईओ'}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {language === 'en' ? 'Started by parents, for parents' : 'माता-पिता द्वारा शुरू किया गया, माता-पिता के लिए'}
+                      {language === 'en' ? 'Visionary Leadership' : 'दूरदर्शी नेतृत्व'}
                     </p>
                   </div>
                 </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {language === 'en' 
+                    ? '"At GleePack, we believe every celebration deserves to be magical. Our mission is to eliminate the stress of party planning and create joyful memories for families across India."'
+                    : '"GleePack में, हमारा मानना है कि हर जश्न जादुई होना चाहिए। हमारा मिशन पार्टी प्लानिंग का तनाव खत्म करना है और भारत भर के परिवारों के लिए खुशनुमा यादें बनाना है।"'}
+                </p>
                 <p className="text-sm text-muted-foreground">
                   {language === 'en' 
-                    ? 'We know the stress of planning perfect celebrations. That\'s why we created GleePack - to give every family the magical moments they deserve.'
-                    : 'हम जानते हैं कि परफेक्ट जश्न प्लान करने का तनाव क्या होता है। यही कारण है कि हमने GleePack बनाया - हर परिवार को वे जादुई पल देने के लिए जो वे हकदार हैं।'}
+                    ? 'We combine technology with heartfelt service to deliver premium celebration experiences that families love and remember forever.'
+                    : 'हम तकनीक को दिल की सेवा के साथ जोड़ते हैं ताकि परिवारों को ऐसी प्रीमियम जश्न की अनुभूति दें जो वे प्यार करें और हमेशा याद रखें।'}
                 </p>
               </div>
               
@@ -248,51 +253,51 @@ const About = () => {
         </div>
       </section>
 
-      {/* Founders Story */}
+      {/* Company Mission */}
       <section className="py-12 px-4">
         <div className="container-custom max-w-4xl mx-auto">
           <div className="bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 rounded-3xl p-8 md:p-12">
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-2 bg-white/80 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
-                <Heart className="h-4 w-4" />
-                {language === 'en' ? 'From Our Family to Yours' : 'हमारे परिवार से आपके परिवार तक'}
+                <Sparkles className="h-4 w-4" />
+                {language === 'en' ? 'Our Mission' : 'हमारा मिशन'}
               </div>
               <h2 className="font-display text-2xl md:text-3xl font-bold mb-4">
                 {language === 'en' ? 'Why We Started GleePack' : 'हमने GleePack क्यों शुरू किया'}
               </h2>
             </div>
-            
+
             <div className="grid md:grid-cols-2 gap-8 items-center">
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
-                    <span className="text-3xl">👨‍👩‍👧‍👦</span>
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-200 to-indigo-100 flex items-center justify-center">
+                    <span className="text-3xl">🎯</span>
                   </div>
                   <div>
                     <h3 className="font-display font-semibold text-lg">
-                      {language === 'en' ? 'Ravi & Priya Sharma' : 'रवि और प्रिया शर्मा'}
+                      {language === 'en' ? 'Market Opportunity' : 'बाजार अवसर'}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {language === 'en' ? 'Parents & Founders' : 'माता-पिता और संस्थापक'}
+                      {language === 'en' ? 'Identified Gap in Celebration Industry' : 'जश्न उद्योग में पहचानी गई कमी'}
                     </p>
                   </div>
                 </div>
-                
+
                 <blockquote className="text-muted-foreground italic text-lg leading-relaxed">
-                  "{language === 'en' 
-                    ? 'As parents, we know how stressful planning celebrations can be. Between work, traffic, and endless shopping - we lost the joy of celebrating. We created GleePack so no family has to go through what we did. Now, focus on memories, not logistics.'
-                    : 'माता-पिता के रूप में, हम जानते हैं कि जश्न प्लान करना कितना तनावपूर्ण हो सकता है। काम, ट्रैफिक और अंतहीन खरीदारी के बीच - हमें जश्न मनाने की खुशी खो गई। हमने GleePack इसलिए बनाया ताकि कोई भी परिवार हमारे जैसा न गुजरे। अब, लॉजिस्टिक्स पर नहीं बल्कि यादों पर ध्यान दें।'}"
+                  "{language === 'en'
+                    ? 'India celebrates over 2 million events daily, yet 70% of families struggle with celebration planning. We saw an opportunity to revolutionize this $50B+ industry by combining technology, quality products, and exceptional service to create stress-free celebrations.'
+                    : 'भारत प्रतिदिन 20 लाख से अधिक कार्यक्रम मनाता है, फिर भी 70% परिवार जश्न की योजना बनाने में संघर्ष करते हैं। हमें इस 50 अरब डॉलर से अधिक उद्योग में क्रांति लाने का अवसर दिखा, जहां तकनीक, गुणवत्तापूर्ण उत्पादों और असाधारण सेवा को मिलाकर तनाव-मुक्त जश्न बनाए जा सकते हैं।'}"
                 </blockquote>
-                
+
                 <div className="flex flex-wrap gap-2">
                   <span className="inline-flex items-center px-3 py-1 bg-white rounded-full text-sm font-medium">
-                    ❤️ {language === 'en' ? 'Made with Love' : 'प्यार से बनाया गया'}
+                    🚀 {language === 'en' ? 'Innovation First' : 'नवाचार पहले'}
                   </span>
                   <span className="inline-flex items-center px-3 py-1 bg-white rounded-full text-sm font-medium">
                     🇮🇳 {language === 'en' ? 'Made in India' : 'भारत में बनाया गया'}
                   </span>
                   <span className="inline-flex items-center px-3 py-1 bg-white rounded-full text-sm font-medium">
-                    ✨ {language === 'en' ? 'Quality Assured' : 'गुणवत्ता सुनिश्चित'}
+                    📈 {language === 'en' ? 'Scaling Solutions' : 'स्केलिंग समाधान'}
                   </span>
                 </div>
               </div>

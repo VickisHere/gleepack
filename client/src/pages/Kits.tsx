@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import Layout from '@/components/layout/Layout';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { LoadingSpinner } from '@/components/ui/loading-states';
 
 type Kit = any;
 
@@ -18,10 +19,12 @@ const Kits = () => {
   const { apiFetch } = useAuthContext();
   const [products, setProducts] = useState<Kit[]>([]);
   const { isAuthenticated } = useAuthContext();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
+      setLoading(true);
       try {
         const res = await apiFetch('/api/products');
         if (!res.ok) throw new Error('Could not load products');
@@ -30,6 +33,8 @@ const Kits = () => {
       } catch (e) {
         console.error('Loading products failed.', e);
         if (mounted) setProducts([]);
+      } finally {
+        if (mounted) setLoading(false);
       }
     })();
     return () => { mounted = false; };
@@ -93,7 +98,12 @@ const Kits = () => {
           </div>
 
           {/* Kits Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            <div className="py-12">
+              <LoadingSpinner message={language === 'en' ? 'Loading kits...' : 'किट्स लोड हो रही हैं...'} />
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Custom Kits Card - Always shown first */}
             <div className="card-festive overflow-hidden group cursor-pointer" onClick={() => navigate('/kits/custom')}>
               <div className="h-48 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-purple-500/10 flex items-center justify-center relative overflow-hidden">
@@ -246,6 +256,7 @@ const Kits = () => {
               </div>
             ))}
           </div>
+          )}
         </div>
       </section>
     </Layout>

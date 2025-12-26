@@ -34,6 +34,29 @@ import {
     Legend,
 } from 'recharts';
 
+const playBeep = () => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Frequency in Hz
+    oscillator.type = 'square'; // Wave type
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Volume
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1); // Fade out
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.1);
+};
+
+const speak = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(utterance);
+};
+
 const STATUS_STAGES = [
     'received',
     'confirmed',
@@ -87,7 +110,24 @@ export default function AdminPanel() {
             const socket = io(SOCKET_URL, { auth: token ? { token } : undefined });
             socketRef.current = socket;
             socket.on('connect', () => console.debug('socket connected', socket.id));
-            socket.on('order_created', (order: any) => { console.log('order_created', order); setOrders((s) => [order, ...s]); });
+            socket.on('order_created', (order: any) => { 
+                console.log('order_created', order); 
+                setOrders((s) => [order, ...s]); 
+                // Play beep 3 times
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => playBeep(), i * 500);
+                }
+                // Speak after beeps
+                setTimeout(() => {
+                    const userName = order.userName || 'Unknown User';
+                    const orderId = order._id;
+                    const products = order.products || [];
+                    const productDetails = products.map((p: any) => `${p.name} for ${p.price}`).join(' and ');
+                    const totalPrice = order.totalAmount || products.reduce((sum: number, p: any) => sum + (p.price * (p.quantity || 1)), 0);
+                    const text = `New order received by ${userName}, order ID ${orderId}, ${productDetails}, total price ${totalPrice}`;
+                    speak(text);
+                }, 2000); // Wait 2 seconds after beeps
+            });
             socket.on('order_updated', (order: any) => { console.log('order_updated', order); setOrders((s) => s.map((o) => (o._id === order._id ? order : o))); });
             socket.on('connect_error', (err) => console.warn('socket connect_error', err));
         } catch (e) {
