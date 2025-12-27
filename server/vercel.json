@@ -11,5 +11,18 @@
       "src": "/(.*)",
       "dest": "/app.js"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "MONGODB_URI": "mongodb+srv://vickisoftware:9572949137@db1.fm8proe.mongodb.net/myDatabase?retryWrites=true&w=majority",
+    "JWT_SECRET": "9e4c50ec380f08c7d34ac64d34b04553",
+    "RAZORPAY_KEY_ID": "rzp_live_RscLlTvBpqVK0X",
+    "RAZORPAY_KEY_SECRET": "63YxklkwQjPbgd1d9wc19Ig0",
+    "FRONTEND_URL": "https://www.gleepack.shop",
+    "BACKEND_URL": "https://gleepackcompb.vercel.app",
+    "GOOGLE_CLIENT_ID": "623342066430-ru0mv97b4vg2p6lbqc9l2g8m2vtil8ri.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_SECRET": "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",
+    "GOOGLE_CALLBACK_URL": "https://gleepackcompb.vercel.app/api/auth/google/callback",
+    "GOOGLE_SIGNUP_OPTIONAL": "true"
+  }
 }

@@ -9,6 +9,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import SmartChatBot from '@/components/SmartChatBot';
 
 const Contact = () => {
   const { language } = useLanguage();
@@ -82,6 +83,14 @@ const Contact = () => {
               </div>
             </div>
           </a>
+
+          {/* Smart Chat Bot */}
+          <div className="mb-6">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+              {language === 'en' ? 'AI ASSISTANT' : 'एआई असिस्टेंट'}
+            </p>
+            <SmartChatBot />
+          </div>
 
           {/* Other Contact Options */}
           <div className="mb-6">

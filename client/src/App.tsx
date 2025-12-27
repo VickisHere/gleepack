@@ -29,6 +29,7 @@ import DBADashboard from "./pages/DBADashboard";
 import GIMPanel from "./pages/GIMPanel";
 import InfluencerPanel from "./pages/InfluencerPanel";
 import AuthCallback from "./pages/AuthCallback";
+import Policies from "./pages/Policies";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
               <Route path="/gim" element={<GIMPanel />} />
               <Route path="/influencer" element={<InfluencerPanel />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/policies" element={<Policies />} />
               <Route path="*" element={<NotFound />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />

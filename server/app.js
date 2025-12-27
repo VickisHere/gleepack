@@ -66,10 +66,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiting
+// Rate limiting - increased limits to prevent blocking users
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
+  max: 10000, // limit each IP to 10000 requests per windowMs (increased)
   message: {
     error: 'Too many requests from this IP, please try again later.'
   },
@@ -77,24 +77,42 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Stricter rate limiting for auth routes
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 auth requests per windowMs
-  message: {
-    error: 'Too many authentication attempts, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Removed strict rate limiting for auth routes - users can sign up/sign in unlimited times
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 10, // limit each IP to 10 auth requests per windowMs
+//   message: {
+//     error: 'Too many authentication attempts, please try again later.'
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
 
-// Apply rate limiting
-app.use('/api/auth', authLimiter);
+// Apply rate limiting - removed auth limiter
+// app.use('/api/auth', authLimiter);
 app.use('/api/', limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:5173', // Development
+      'http://localhost:3000', // Development alternative
+      'https://www.gleepack.shop', // Production frontend
+      'https://gleepack.shop', // Production frontend without www
+      process.env.FRONTEND_URL // Environment variable
+    ].filter(Boolean);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`CORS blocked origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -173,15 +191,33 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
 app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: false }));
 app.use(cookieParser());
 
-app.get('/stylesheets/style.css', function(req, res) {
-  res.sendFile(path.join(__dirname, 'public/stylesheets/style.css'));
+// Additional security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
 });
-app.get('/favicon.ico', function(req, res) {
-  res.status(404).send('Not found');
+
+// Request sanitization to prevent injection attacks
+app.use((req, res, next) => {
+  // Basic input sanitization
+  for (let key in req.body) {
+    if (typeof req.body[key] === 'string') {
+      req.body[key] = req.body[key].trim();
+    }
+  }
+  for (let key in req.query) {
+    if (typeof req.query[key] === 'string') {
+      req.query[key] = req.query[key].trim();
+    }
+  }
+  next();
 });
 app.get('/favicon.png', function(req, res) {
   res.status(404).send('Not found');

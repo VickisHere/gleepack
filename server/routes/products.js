@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { connect } = require('../lib/mongoClient');
 const events = require('../lib/events');
-const fs = require('fs');
-const path = require('path');
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
 const JWT_SECRET = process.env.JWT_SECRET || 'replace_this_secret_in_env';
@@ -182,6 +180,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Admin/GIM: upload image for product (accepts JSON { filename, data }) where data is a data URL
+// Vercel-compatible: stores as data URL in database instead of writing files
 router.post('/:id/image', async (req, res) => {
   try {
     if (!requireInventoryManager(req, res)) return res.status(403).json({ error: 'Inventory Manager access required' });
@@ -192,28 +191,24 @@ router.post('/:id/image', async (req, res) => {
 
     // data is expected as data:image/<ext>;base64,AAAA
     const match = String(data).match(/^data:(image\/(png|jpeg|jpg|webp|gif));base64,(.+)$/);
-    let buffer;
-    let ext = '';
+    let dataUrl;
     if (match) {
-      ext = match[2];
-      buffer = Buffer.from(match[3], 'base64');
+      dataUrl = data; // Already a data URL
     } else {
-      // fallback: try raw base64
-      try { buffer = Buffer.from(data, 'base64'); } catch (e) { return res.status(400).json({ error: 'Invalid image data' }); }
+      // fallback: try raw base64, assume PNG
+      try {
+        const buffer = Buffer.from(data, 'base64');
+        dataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid image data' });
+      }
     }
 
-    const imagesDir = path.join(__dirname, '..', 'public', 'images');
-    if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
-    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const outPath = path.join(imagesDir, safeName);
-    fs.writeFileSync(outPath, buffer);
-
-    // update product record with image path
+    // update product record with data URL
     const db = await connect();
-    const urlPath = `/images/${safeName}`;
-    await db.collection('products').updateOne({ id }, { $set: { image: urlPath } });
-    try { events.emit('product_updated', { id, image: urlPath }); } catch (e) { /* ignore */ }
-    return res.json({ ok: true, url: urlPath });
+    await db.collection('products').updateOne({ id }, { $set: { image: dataUrl } });
+    try { events.emit('product_updated', { id, image: dataUrl }); } catch (e) { /* ignore */ }
+    return res.json({ ok: true, url: dataUrl });
   } catch (err) {
     console.error('product image upload error', err);
     return res.status(500).json({ error: 'Could not upload image' });
