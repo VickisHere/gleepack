@@ -48,7 +48,7 @@ const DeliveryPanel = () => {
 
     // Socket for real-time updates
     try {
-      const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || `${window.location.protocol}//${window.location.hostname}:3010`;
+      const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || `${window.location.protocol}//${window.location.hostname}:3010`;
       const socket = io(SOCKET_URL, { auth: token ? { token } : undefined });
       socket.on('order_updated', (order: any) => {
         setOrders((s) => s.map((o) => (o._id === order._id ? order : o)));

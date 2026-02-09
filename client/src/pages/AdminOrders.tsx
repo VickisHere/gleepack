@@ -32,7 +32,7 @@ export default function AdminOrders() {
 
     // connect socket.io to backend (port 3000) and listen for order events
     try {
-      const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || `${window.location.protocol}//${window.location.hostname}:3000`;
+      const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
       const socket = io(SOCKET_URL, { auth: token ? { token } : undefined });
       socketRef.current = socket;
       socket.on('connect', () => console.debug('socket connected', socket.id));

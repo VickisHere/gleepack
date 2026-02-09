@@ -4,7 +4,9 @@
   "installCommand": "npm install",
   "framework": "vite",
   "env": {
-    "VITE_API_URL": "https://gleepackcompb.vercel.app"
+    "VITE_API_URL": "https://gleepackcompb.vercel.app",
+    "VITE_FRONTEND_URL": "https://www.gleepack.shop",
+    "VITE_SOCKET_URL": "https://gleepackcompb.vercel.app"
   },
   "rewrites": [
     {
