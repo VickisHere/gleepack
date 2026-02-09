@@ -186,10 +186,6 @@ require('./lib/passport')(passport);
 app.use(passport.initialize());
 app.use(passport.session());
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'pug');
-
 app.use(logger('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: false }));
@@ -261,17 +257,11 @@ app.use(function(err, req, res, next) {
     timestamp: new Date().toISOString()
   });
 
-  // If this is an API request, return JSON
-  if (req.path && req.path.startsWith('/api')) {
-    return res.status(err.status || 500).json({
-      error: err.message || 'Internal Server Error',
-      ...(req.app.get('env') === 'development' && { stack: err.stack })
-    });
-  }
-
-  // render the error page for non-API requests
-  res.status(err.status || 500);
-  res.render('error');
+  // Return JSON for all requests (API is API-only, no views)
+  return res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
 // Global error handlers for uncaught exceptions and unhandled rejections
