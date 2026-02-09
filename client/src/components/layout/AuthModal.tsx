@@ -12,10 +12,18 @@ import { LoadingSpinner, NetworkError, ConnectionError } from '@/components/ui/l
 interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTab?: 'login' | 'register';
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange, initialTab }) => {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialTab || 'login');
+
+  useEffect(() => {
+    if (open) {
+      setActiveTab(initialTab || 'login');
+      // Reset other internal state handled elsewhere when modal opens
+    }
+  }, [open, initialTab]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');

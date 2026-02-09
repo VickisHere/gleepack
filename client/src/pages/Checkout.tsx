@@ -21,9 +21,9 @@ import { toast } from 'sonner';
 
 const Checkout = () => {
   const { language, t } = useLanguage();
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, updateQuantity, removeItem } = useCart();
   const navigate = useNavigate();
-  const { apiFetch, token, user, isAuthenticated } = useAuthContext();
+  const { apiFetch, token, user, isAuthenticated, openAuthModal } = useAuthContext();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -55,10 +55,10 @@ const Checkout = () => {
   useEffect(() => {
     if (!isAuthenticated) {
       toast.error(language === 'en' ? 'Please login to place an order' : 'ऑर्डर देने के लिए कृपया लॉगिन करें');
-      navigate('/login');
+      openAuthModal();
       return;
     }
-  }, [isAuthenticated, navigate, language]);
+  }, [isAuthenticated, openAuthModal, language]);
 
   // Redirect if no items
   useEffect(() => {
@@ -174,8 +174,11 @@ const Checkout = () => {
         const data = await res.json();
         if (data && data[0] && data[0].Status === 'Success') {
           const district = data[0].PostOffice[0].District || '';
+          const wasEmpty = !(formData.district && formData.district.trim());
           setFormData(prev => ({ ...prev, district }));
-          toast.success(language === 'en' ? `District found: ${district}` : `जिला मिला: ${district}`);
+          if (wasEmpty) {
+            toast.success(language === 'en' ? `District found: ${district}` : `जिला मिला: ${district}`);
+          }
         } else {
           console.warn('Postal API: Invalid pincode or district not found');
           toast.warning(language === 'en' ? 'Could not find district for this pincode. Please enter manually.' : 'इस पिनकोड के लिए जिला नहीं मिला। कृपया मैन्युअली दर्ज करें।');
@@ -256,7 +259,6 @@ const Checkout = () => {
         }
         const saved = await res.json();
         clearCart();
-        toast.success(t('checkout.success'));
         
         // Apply coupon if used
         if (appliedCoupon) {
@@ -290,7 +292,7 @@ const Checkout = () => {
           }
         }
         
-        navigate('/');
+        navigate('/orders');
         return;
       }
 
@@ -336,7 +338,6 @@ const Checkout = () => {
             }
             const body = await verifyRes.json();
             clearCart();
-            toast.success(t('checkout.success'));
             
             // Save address if new
             if (selectedAddress === null && token) {
@@ -358,7 +359,7 @@ const Checkout = () => {
               }
             }
             
-            navigate('/');
+            navigate('/orders');
           } catch (err: any) {
             toast.error(err.message || 'Payment verification failed');
           } finally {
@@ -755,9 +756,33 @@ const Checkout = () => {
                 </h3>
                 <div className="space-y-3 border-b border-border pb-4 mb-4">
                   {items.map(item => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span>{item.name} x{item.quantity}</span>
-                      <span>₹{((item.price || 0) + ((item.addons || []).reduce((s, a) => s + (a.price || 0), 0))) * item.quantity}</span>
+                    <div key={item.id} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium">{item.name}</span>
+                        <div className="inline-flex items-center border rounded-md overflow-hidden">
+                          <button
+                            type="button"
+                            className="px-2 bg-transparent"
+                            onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)}
+                            aria-label="Decrease quantity"
+                          >
+                            -
+                          </button>
+                          <div className="px-3">{item.quantity}</div>
+                          <button
+                            type="button"
+                            className="px-2 bg-transparent"
+                            onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1)}
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span>₹{((item.price || 0) + ((item.addons || []).reduce((s, a) => s + (a.price || 0), 0))) * item.quantity}</span>
+                        <button type="button" className="text-sm text-destructive" onClick={() => removeItem(item.id)} aria-label="Remove item">Remove</button>
+                      </div>
                     </div>
                   ))}
                   <div className="flex justify-between text-sm">

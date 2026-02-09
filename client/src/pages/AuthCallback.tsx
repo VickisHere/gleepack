@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 const AuthCallback: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const auth = useAuth();
+  const auth = useAuthContext();
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -19,10 +19,10 @@ const AuthCallback: React.FC = () => {
         navigate('/');
       } catch (err) {
         console.error('Failed to parse auth callback:', err);
-        navigate('/login?error=auth_failed');
+        auth.openAuthModal();
       }
     } else {
-      navigate('/login?error=auth_failed');
+      auth.openAuthModal();
     }
   }, [searchParams, navigate, auth]);
 

@@ -11,6 +11,11 @@ type AuthContextType = {
   isAuthenticated: boolean;
   apiFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
   saveAuth: (token: string, user: User) => void;
+  authModalOpen: boolean;
+  setAuthModalOpen: (open: boolean) => void;
+  authModalInitialTab: 'login' | 'register';
+  setAuthModalInitialTab: (tab: 'login' | 'register') => void;
+  openAuthModal: (tab?: 'login' | 'register') => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +26,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(AUTH_TOKEN_KEY));
   const [user, setUser] = useState<User>(null);
+
+  // Auth modal state so any page/component can open the login/register modal
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'register'>('login');
+  const openAuthModal = (tab?: 'login' | 'register') => {
+    setAuthModalInitialTab(tab || 'login');
+    setAuthModalOpen(true);
+  };
 
   useEffect(() => {
     if (token) {
@@ -105,6 +118,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   function logout() {
     clearAuth();
+    // If running inside a router, components can use navigate.
+    // Use a hard redirect here so logout works even when this provider
+    // is mounted outside a Router during app initialization.
+    try {
+      window.location.replace('/');
+    } catch (e) {
+      // ignore
+    }
   }
 
   const value: AuthContextType = {
@@ -116,6 +137,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: !!token,
     apiFetch,
     saveAuth,
+    authModalOpen,
+    setAuthModalOpen,
+    authModalInitialTab,
+    setAuthModalInitialTab,
+    openAuthModal,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

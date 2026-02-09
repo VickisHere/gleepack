@@ -10,14 +10,14 @@ import { useEffect } from 'react';
 const Cart = () => {
   const { language, t } = useLanguage();
   const { items, removeItem, updateQuantity, totalPrice } = useCart();
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, openAuthModal } = useAuthContext();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login');
+      openAuthModal();
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, openAuthModal]);
 
   if (!isAuthenticated) {
     return null;

@@ -1,15 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import { useNetworkRequest } from '@/hooks/useNetworkRequest';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { toast } from 'sonner';
 import { LoadingSpinner, NetworkError, ConnectionError } from '@/components/ui/loading-states';
+import { RotateCcw } from 'lucide-react';
 
 const Orders: React.FC = () => {
-  const { apiFetch, isAuthenticated, token, user } = useAuthContext();
+  const { apiFetch, isAuthenticated, token, user, openAuthModal } = useAuthContext();
+  const { reorderItems } = useCart();
   const [orders, setOrders] = useState<any[]>([]);
   const socketRef = useRef<any | null>(null);
   const navigate = useNavigate();
@@ -17,7 +20,7 @@ const Orders: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login');
+      openAuthModal();
       return;
     }
 
@@ -65,13 +68,43 @@ const Orders: React.FC = () => {
     }
   }, [isAuthenticated, token, user]);
 
+  const handleReorder = (order: any) => {
+    if (!order?.items || order.items.length === 0) {
+      toast.error('No items to reorder');
+      return;
+    }
+
+    try {
+      // Map order items to CartItem format
+      const cartItems = (order.items || []).map((item: any, index: number) => ({
+        id: item.id || item._id || `${item.name}-${index}`,
+        name: item.name,
+        nameHi: item.nameHi,
+        price: item.price ?? item.rate ?? item.unitPrice ?? 0,
+        category: item.category || 'Other',
+        tier: item.tier || 'standard',
+        quantity: item.quantity ?? item.qty ?? 1,
+        addons: item.addons || [],
+        deliveryDate: order.deliveryDate,
+      }));
+
+      // Clear existing cart and add order items
+      reorderItems(cartItems);
+      toast.success('Items added to cart! Ready to reorder');
+      navigate('/cart');
+    } catch (e) {
+      console.error('Reorder error:', e);
+      toast.error('Failed to process reorder');
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <Layout>
         <div className="section-padding container-custom text-center">
           <h2 className="text-2xl font-bold mb-4">Please log in to view your orders</h2>
           <div className="flex justify-center">
-            <Button onClick={() => navigate('/login')}>Login</Button>
+            <Button onClick={() => openAuthModal()}>Login</Button>
           </div>
         </div>
       </Layout>
@@ -114,6 +147,7 @@ const Orders: React.FC = () => {
                 key={o._id || o.id}
                 order={o}
                 onOpen={() => navigate(`/orders/${o._id || o.id}`)}
+                onReorder={() => handleReorder(o)}
               />
             ))}
           </div>
@@ -125,18 +159,56 @@ const Orders: React.FC = () => {
 
 export default Orders;
 
-function OrderCard({ order, onOpen }: { order: any; onOpen: () => void }) {
+function OrderCard({ order, onOpen, onReorder }: { order: any; onOpen: () => void; onReorder: () => void }) {
   const itemNames = (order.items || []).map((i: any) => i.name).filter(Boolean);
   const namesText = itemNames.length > 2
     ? `${itemNames.slice(0, 2).join(', ')} +${itemNames.length - 2} more`
     : itemNames.join(', ') || 'Items';
 
+  const handleReorderClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onReorder();
+  };
+
+  const isDelivered = order.status === 'delivered';
+
   return (
     <div
-      className="p-6 border border-gray-200 rounded-xl hover:shadow-lg hover:border-gray-300 transition-all cursor-pointer bg-white"
+      className="p-4 sm:p-6 border border-gray-200 rounded-xl hover:border-gray-300 transition-all cursor-pointer bg-white"
       onClick={onOpen}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* Mobile view */}
+      <div className="sm:hidden space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-gray-900 truncate">{namesText}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {new Date(order.createdAt).toLocaleDateString()}
+            </div>
+          </div>
+          <div className="text-lg font-bold text-gray-900">₹{order.total}</div>
+        </div>
+        
+        <div className="flex items-center gap-2 justify-between">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+            {order.status === 'confirmed' ? 'Confirmed' : order.status === 'delivered' ? 'Delivered' : order.status === 'cancelled' ? 'Cancelled' : (order.status || 'Pending').replace(/_/g, ' ')}
+          </span>
+          <span className="text-blue-600 text-xs font-medium">View →</span>
+        </div>
+
+        {isDelivered && (
+          <Button
+            onClick={handleReorderClick}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-base transition-colors"
+          >
+            <RotateCcw className="h-5 w-5" />
+            <span>Reorder Again</span>
+          </Button>
+        )}
+      </div>
+
+      {/* Desktop view */}
+      <div className="hidden sm:flex flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-gray-900 truncate">{namesText}</div>
           <div className="text-sm text-gray-500 mt-1">
@@ -148,6 +220,17 @@ function OrderCard({ order, onOpen }: { order: any; onOpen: () => void }) {
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
             {order.status === 'confirmed' ? 'Confirmed' : order.status === 'delivered' ? 'Delivered' : order.status === 'cancelled' ? 'Cancelled' : (order.status || 'Pending').replace(/_/g, ' ')}
           </span>
+          {isDelivered && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReorderClick}
+              className="flex items-center gap-1"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Reorder</span>
+            </Button>
+          )}
           <span className="text-blue-600 text-sm font-medium">View details →</span>
         </div>
       </div>

@@ -39,8 +39,10 @@ router.get('/', authMiddleware, async (req, res) => {
 
     // Normalize profile fields across collections (hide internal id)
     const profile = {
+      id: obj._id,
       email: obj.email,
       name: obj.name,
+      phone: obj.phone,
       addresses: obj.addresses || [],
       createdAt: obj.createdAt
     };
@@ -51,10 +53,10 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Update current user's profile (allow updating name and addresses)
+// Update current user's profile (allow updating name, phone, and addresses)
 router.put('/', authMiddleware, async (req, res) => {
   const userId = req.user.sub;
-  const { name, addresses } = req.body;
+  const { name, phone, addresses } = req.body;
   try {
     const db = await connect();
     const ObjectId = require('mongodb').ObjectId;
@@ -63,6 +65,8 @@ router.put('/', authMiddleware, async (req, res) => {
     
     console.log('=== Profile Update Start ===');
     console.log('Updating user:', userId);
+    console.log('Name:', name);
+    console.log('Phone:', phone);
     console.log('Addresses count:', addresses ? addresses.length : 0);
     
     // Enrich addresses with district info if missing (backend validation)
@@ -83,10 +87,13 @@ router.put('/', authMiddleware, async (req, res) => {
     
     console.log('Enriched addresses:', enrichedAddresses);
     
-    // Only set name if provided, to avoid overwriting with undefined
+    // Build update object - only set fields that are provided
     const update = { $set: { addresses: enrichedAddresses, updatedAt: new Date() } };
     if (name !== undefined) {
       update.$set.name = name;
+    }
+    if (phone !== undefined) {
+      update.$set.phone = phone;
     }
 
     console.log('Update object:', JSON.stringify(update));
@@ -117,8 +124,10 @@ router.put('/', authMiddleware, async (req, res) => {
     console.log('Profile updated successfully. Addresses count:', (obj.addresses || []).length);
     
     const profile = {
+      id: obj._id,
       email: obj.email,
       name: obj.name,
+      phone: obj.phone,
       addresses: obj.addresses || [],
       createdAt: obj.createdAt
     };

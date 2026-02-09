@@ -17,9 +17,8 @@ const Kits = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState<Kit['category'] | 'all'>('all');
-  const { apiFetch } = useAuthContext();
+  const { apiFetch, isAuthenticated, openAuthModal } = useAuthContext();
   const [products, setProducts] = useState<Kit[]>([]);
-  const { isAuthenticated } = useAuthContext();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -230,7 +229,7 @@ const Kits = () => {
                           e.stopPropagation(); 
                           if (!isAuthenticated) {
                             toast.error(language === 'en' ? 'Please login to add items to cart' : 'कार्ट में आइटम जोड़ने के लिए कृपया लॉगिन करें');
-                            navigate('/login');
+                            openAuthModal();
                             return;
                           }
                           addItem({ id: kit.id, name: kit.name, nameHi: kit.nameHi, price: kit.price, category: kit.category, tier: kit.tier, addons: [] }); 
@@ -243,7 +242,7 @@ const Kits = () => {
                           e.stopPropagation(); 
                           if (!isAuthenticated) {
                             toast.error(language === 'en' ? 'Please login to place an order' : 'ऑर्डर देने के लिए कृपया लॉगिन करें');
-                            navigate('/login');
+                            openAuthModal();
                             return;
                           }
                           addItem({ id: kit.id, name: kit.name, nameHi: kit.nameHi, price: kit.price, category: kit.category, tier: kit.tier, addons: [] }); 

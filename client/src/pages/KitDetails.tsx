@@ -15,12 +15,11 @@ const KitDetails = () => {
   const { addItem } = useCart();
   const navigate = useNavigate();
 
-  const { apiFetch } = useAuthContext();
+  const { apiFetch, isAuthenticated, openAuthModal } = useAuthContext();
   const [kit, setKit] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [relatedKits, setRelatedKits] = useState<any[]>([]);
-  const { isAuthenticated } = useAuthContext();
 
   useEffect(() => {
     let mounted = true;
@@ -100,7 +99,7 @@ const KitDetails = () => {
   const handleAddToCart = () => {
     if (!isAuthenticated) {
       toast.error(language === 'en' ? 'Please login to add items to cart' : 'कार्ट में आइटम जोड़ने के लिए कृपया लॉगिन करें');
-      navigate('/login');
+      openAuthModal();
       return;
     }
     addItem({
@@ -116,7 +115,7 @@ const KitDetails = () => {
   const handleBuyNow = () => {
     if (!isAuthenticated) {
       toast.error(language === 'en' ? 'Please login to place an order' : 'ऑर्डर देने के लिए कृपया लॉगिन करें');
-      navigate('/login');
+      openAuthModal();
       return;
     }
     addItem({
@@ -132,7 +131,7 @@ const KitDetails = () => {
   const handleOrderCustom = () => {
     if (!isAuthenticated) {
       toast.error(language === 'en' ? 'Please login to order custom kits' : 'कस्टम किट ऑर्डर करने के लिए कृपया लॉगिन करें');
-      navigate('/login');
+      openAuthModal();
       return;
     }
     const message = encodeURIComponent("Hi, I want to order a custom kit for my event. Please help me design it.");

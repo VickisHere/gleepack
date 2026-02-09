@@ -6,16 +6,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import AuthModal from './AuthModal';
-import ProfileModal from './ProfileModal';
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { language, setLanguage, t } = useLanguage();
   const { totalItems } = useCart();
-  const { isAuthenticated, user, logout } = useAuthContext();
+  const { isAuthenticated, user, logout, authModalOpen, setAuthModalOpen, openAuthModal, authModalInitialTab } = useAuthContext();
   const location = useLocation();
-  const [authOpen, setAuthOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   // Close mobile menu when clicking outside
@@ -138,11 +135,13 @@ const Header = () => {
               )}
 
               {/* Profile */}
-              <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10">
-                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
-                  {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
-                </div>
-              </Button>
+              <Link to="/profile">
+                <Button variant="ghost" size="icon" className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10">
+                  <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                    {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
+                  </div>
+                </Button>
+              </Link>
 
               {/* Role Dashboard Button - Only show on desktop where bottom nav is hidden */}
               {roleButton && (
@@ -220,28 +219,34 @@ const Header = () => {
               )}
 
               {/* Profile/Login button for mobile */}
-              <Button variant="ghost" size="icon" onClick={() => isAuthenticated ? setProfileOpen(true) : setAuthOpen(true)} className="md:hidden w-8 h-8">
-                {isAuthenticated ? (
-                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
-                    {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
-                  </div>
-                ) : (
-                  <User className="h-4 w-4" />
-                )}
-              </Button>
-
-              {/* Auth / Mobile Menu Button - Hidden on mobile since we have bottom nav */}
               {isAuthenticated ? (
-                <div className="hidden md:flex items-center gap-1 lg:gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => setProfileOpen(true)} className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10">
-                    <div className="w-6 h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                <Link to="/profile">
+                  <Button variant="ghost" size="icon" className="md:hidden w-8 h-8">
+                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
                       {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
                     </div>
                   </Button>
+                </Link>
+              ) : (
+                <Button variant="ghost" size="icon" onClick={() => openAuthModal()} className="md:hidden w-8 h-8">
+                  <User className="h-4 w-4" />
+                </Button>
+              )}
+
+              {/* Auth / Mode button - Hidden on mobile since we have bottom nav */}
+              {isAuthenticated ? (
+                <div className="hidden md:flex items-center gap-1 lg:gap-2">
+                  <Link to="/profile">
+                    <Button variant="ghost" size="icon" className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10">
+                      <div className="w-6 h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                        {user?.name ? (user as any).name[0].toUpperCase() : (user?.email || 'U')[0]}
+                      </div>
+                    </Button>
+                  </Link>
                 </div>
               ) : (
                 <div className="hidden md:flex items-center gap-1 lg:gap-2">
-                  <Button variant="default" size="sm" onClick={() => setAuthOpen(true)} className="text-xs lg:text-sm px-2 lg:px-3 font-semibold">
+                  <Button variant="default" size="sm" onClick={() => openAuthModal()} className="text-xs lg:text-sm px-2 lg:px-3 font-semibold">
                     Get Started
                   </Button>
                 </div>
@@ -274,21 +279,23 @@ const Header = () => {
             <div className="mt-4 flex flex-col gap-3 px-4">
               {isAuthenticated ? (
                 <>
-                  <Button variant="ghost" onClick={() => { setProfileOpen(true); setIsOpen(false); }} className="justify-start py-4 text-base touch-manipulation">
-                    {language === 'en' ? 'Profile' : 'प्रोफ़ाइल'}
-                  </Button>
+                  <Link to="/profile" onClick={() => setIsOpen(false)} className="block">
+                    <Button variant="ghost" className="justify-start py-4 text-base touch-manipulation w-full">
+                      {language === 'en' ? 'Profile' : 'प्रोफ़ाइल'}
+                    </Button>
+                  </Link>
                   <Button variant="outline" onClick={() => { logout(); setIsOpen(false); }} className="w-full py-4 text-base touch-manipulation">
                     {language === 'en' ? 'Logout' : 'लॉग आउट'}
                   </Button>
                 </>
               ) : (
                 <div className="flex flex-col gap-3">
-                  <Button variant="ghost" onClick={() => { setAuthOpen(true); setIsOpen(false); }} className="justify-start py-4 text-base touch-manipulation">
+                  <Button variant="ghost" onClick={() => { openAuthModal(); setIsOpen(false); }} className="justify-start py-4 text-base touch-manipulation">
                     {language === 'en' ? 'Login' : 'लॉगिन'}
                   </Button>
-                  <Button variant="default" onClick={() => { setAuthOpen(true); setIsOpen(false); }} className="w-full py-4 text-base touch-manipulation">
+                  <Button variant="default" onClick={() => { openAuthModal('register'); setIsOpen(false); }} className="w-full py-4 text-base touch-manipulation">
                     {language === 'en' ? 'Register' : 'रजिस्टर'}
-                  </Button>
+                  </Button> 
                 </div>
               )}
             </div>
@@ -296,8 +303,7 @@ const Header = () => {
         )}
       </div>
 
-      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
-      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+      <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} initialTab={authModalInitialTab} />
     </header>
   );
 };

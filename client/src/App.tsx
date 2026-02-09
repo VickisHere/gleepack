@@ -7,8 +7,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ScrollToTop from "@/components/ScrollToTop";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
+
 import Index from "./pages/Index";
 import Kits from "./pages/Kits";
 import KitDetails from "./pages/KitDetails";
@@ -30,6 +29,7 @@ import GIMPanel from "./pages/GIMPanel";
 import InfluencerPanel from "./pages/InfluencerPanel";
 import AuthCallback from "./pages/AuthCallback";
 import Policies from "./pages/Policies";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -64,9 +64,8 @@ const App = () => (
               <Route path="/influencer" element={<InfluencerPanel />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/policies" element={<Policies />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<NotFound />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
             </Routes>
           </BrowserRouter>
           </TooltipProvider>
