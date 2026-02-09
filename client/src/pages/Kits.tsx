@@ -7,6 +7,7 @@ import Layout from '@/components/layout/Layout';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { LoadingSpinner } from '@/components/ui/loading-states';
+import HomeBanner from '@/components/HomeBanner';
 
 type Kit = any;
 
@@ -72,6 +73,7 @@ const Kits = () => {
 
   return (
     <Layout>
+      <HomeBanner />
       <section className="section-padding">
         <div className="container-custom">
           <div className="text-center mb-12">
@@ -103,7 +105,7 @@ const Kits = () => {
               <LoadingSpinner message={language === 'en' ? 'Loading kits...' : 'किट्स लोड हो रही हैं...'} />
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div id="kits-grid" className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Custom Kits Card - Always shown first */}
             <div className="card-festive overflow-hidden group cursor-pointer" onClick={() => navigate('/kits/custom')}>
               <div className="h-48 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-purple-500/10 flex items-center justify-center relative overflow-hidden">

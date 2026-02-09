@@ -37,7 +37,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   }, []);
 
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     window.location.href = `${apiUrl}/api/auth/google`;
   };
 
@@ -78,12 +78,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-bold">
-            Welcome to GleePack
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="w-[92vw] max-w-sm rounded-2xl sm:max-w-md sm:rounded-xl p-3 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="text-center text-lg sm:text-2xl font-bold">
+              Welcome to GleePack
+            </DialogTitle>
+          </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(value) => switchTab(value as 'login' | 'register')}>
           <TabsList className="grid w-full grid-cols-2">
@@ -139,10 +139,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       )}
                     </div>
                   )}
-                  <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                  <Button type="submit" className="w-full sm:h-11 sm:px-8" size="sm" disabled={isLoading}>
                     {isLoading ? (
                       <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" />
+                        <LoadingSpinner size="sm" inline />
                         {activeTab === 'login' ? 'Signing in...' : 'Creating account...'}
                       </div>
                     ) : (
@@ -163,8 +163,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <Button
                   variant="outline"
                   onClick={handleGoogleLogin}
-                  className="w-full"
-                  size="lg"
+                  className="w-full sm:h-11 sm:px-8"
+                  size="sm"
                   type="button"
                 >
                   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -252,7 +252,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                     {isLoading ? (
                       <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" />
+                        <LoadingSpinner size="sm" inline />
                         {activeTab === 'login' ? 'Signing in...' : 'Creating account...'}
                       </div>
                     ) : (

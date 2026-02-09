@@ -21,7 +21,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [errorType, setErrorType] = useState<'network' | 'connection' | 'server' | null>(null);
+  const [errorType, setErrorType] = useState<'network' | 'connection' | 'server' | 'client' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuthContext();
   const navigate = useNavigate();
@@ -40,7 +40,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
   }, []);
 
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     window.location.href = `${apiUrl}/api/auth/google`;
   };
 
@@ -67,6 +67,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
       } else if (errorMessage === 'CONNECTION_ERROR') {
         setErrorType('connection');
         setError('Server is currently unavailable. Please try again later.');
+      } else if (errorMessage === 'User not found' || errorMessage.includes('User not found')) {
+        setErrorType('client');
+        setError(errorMessage);
       } else {
         setErrorType('server');
         setError(errorMessage);
@@ -91,9 +94,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[92vw] max-w-sm rounded-2xl sm:max-w-md sm:rounded-xl p-3 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-bold">
+          <DialogTitle className="text-center text-lg sm:text-2xl font-bold">
             Welcome to GleePack
           </DialogTitle>
         </DialogHeader>
@@ -147,6 +150,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                     <div className="mt-4">
                       {errorType === 'network' && <NetworkError onRetry={() => handleSubmit({ preventDefault: () => {} } as any)} />}
                       {errorType === 'connection' && <ConnectionError onRetry={() => handleSubmit({ preventDefault: () => {} } as any)} />}
+                      {errorType === 'client' && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-xs text-blue-800">{error}</p>
+                          {activeTab === 'login' && error.includes('User not found') && (
+                            <p className="text-xs text-blue-700 mt-2">
+                              Please <button onClick={() => switchTab('register')} className="text-primary underline">sign up</button> to create an account.
+                            </p>
+                          )}
+                        </div>
+                      )}
                       {errorType === 'server' && (
                         <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg">
                           <div className="text-3xl mb-2">🚀</div>
@@ -163,10 +176,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                       )}
                     </div>
                   )}
-                  <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                  <Button type="submit" className="w-full sm:h-11 sm:px-8" size="sm" disabled={isLoading}>
                     {isLoading ? (
                       <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" />
+                        <LoadingSpinner size="sm" inline />
                         {activeTab === 'login' ? 'Signing in...' : 'Creating account...'}
                       </div>
                     ) : (
@@ -187,8 +200,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                 <Button
                   variant="outline"
                   onClick={handleGoogleLogin}
-                  className="w-full"
-                  size="lg"
+                  className="w-full sm:h-11 sm:px-8"
+                  size="sm"
                   type="button"
                 >
                   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -268,6 +281,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                     <div className="mt-4">
                       {errorType === 'network' && <NetworkError onRetry={() => handleSubmit({ preventDefault: () => {} } as any)} />}
                       {errorType === 'connection' && <ConnectionError onRetry={() => handleSubmit({ preventDefault: () => {} } as any)} />}
+                      {errorType === 'client' && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-xs text-blue-800">{error}</p>
+                          {activeTab === 'login' && error.includes('User not found') && (
+                            <p className="text-xs text-blue-700 mt-2">
+                              Please <button onClick={() => switchTab('register')} className="text-primary underline">sign up</button> to create an account.
+                            </p>
+                          )}
+                        </div>
+                      )}
                       {errorType === 'server' && (
                         <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg">
                           <div className="text-3xl mb-2">🚀</div>
@@ -287,7 +310,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                   <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                     {isLoading ? (
                       <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" />
+                        <LoadingSpinner size="sm" inline />
                         {activeTab === 'login' ? 'Signing in...' : 'Creating account...'}
                       </div>
                     ) : (

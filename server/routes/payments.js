@@ -86,8 +86,8 @@ router.post('/razorpay/verify', express.json(), async (req, res) => {
       paymentUpdatedAt: now,
       payment: { razorpay_order_id, razorpay_payment_id, razorpay_signature },
       createdAt: now,
-      status: 'received',
-      statusHistory: [{ status: 'received', by: actor, at: now }, { status: `payment:paid`, by: actor, at: now }],
+      status: 'confirmed',
+      statusHistory: [{ status: 'confirmed', by: actor, at: now }, { status: `payment:paid`, by: actor, at: now }],
     });
 
     const result = await db.collection('orders').insertOne(orderDoc);

@@ -9,15 +9,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'replace_this_secret_in_env';
 
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ error: 'Missing authorization header' });
+  if (!auth) {
+    console.warn('authMiddleware: Missing Authorization header', { path: req.path, method: req.method });
+    return res.status(401).json({ error: 'Missing authorization header' });
+  }
   const parts = auth.split(' ');
-  if (parts.length !== 2) return res.status(401).json({ error: 'Invalid authorization header' });
+  if (parts.length !== 2) {
+    console.warn('authMiddleware: Invalid Authorization header format', { header: auth });
+    return res.status(401).json({ error: 'Invalid authorization header' });
+  }
   const token = parts[1];
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     req.user = payload;
     next();
   } catch (err) {
+    console.warn('authMiddleware: Token verification failed', { message: err && err.message, path: req.path });
     return res.status(401).json({ error: 'Invalid token' });
   }
 }
@@ -188,8 +195,8 @@ router.post('/', authMiddleware, async (req, res, next) => {
         userEmail: userSnapshot.email,
         userName: userSnapshot.name,
         createdAt: now,
-        status: 'received',
-        statusHistory: [{ status: 'received', by: userSnapshot.email || userSnapshot.id || 'guest', at: now }],
+        status: 'confirmed',
+        statusHistory: [{ status: 'confirmed', by: userSnapshot.email || userSnapshot.id || 'guest', at: now }],
         coupon: couponData,
         discountAmount: discountAmount,
         commissionAmount: commissionAmount,
@@ -293,6 +300,10 @@ router.get('/all', authMiddleware, deliveryMiddleware, async (req, res, next) =>
     }
     const q = {};
     const orders = await db.collection('orders').find(q).sort({ createdAt: -1 }).toArray();
+    // Debug: log how many orders we return and sample ids
+    try {
+      console.debug('orders.js: /all returning', orders.length, 'orders. sample ids:', orders.slice(0,5).map(o => (o._id && (o._id.toString ? o._id.toString() : o._id))));
+    } catch (e) { console.warn('orders.js: /all debug log failed', e && e.message); }
     // Ensure paymentMethod is set for display
     const processedOrders = orders.map(order => {
       if (!order.paymentMethod) {
@@ -310,12 +321,44 @@ router.get('/all', authMiddleware, deliveryMiddleware, async (req, res, next) =>
   }
 });
 
+// Get single order by id (owner or admin/dba/delivery)
+router.get('/:id', authMiddleware, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const ObjectId = require('mongodb').ObjectId;
+    if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid order id' });
+    let db;
+    try {
+      db = await connect();
+    } catch (err) {
+      return res.status(500).json({ error: 'Database not configured or unavailable' });
+    }
+    const order = await db.collection('orders').findOne({ _id: new ObjectId(id) });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    const isOwner = order.userId === req.user.sub || order.userId === String(req.user.sub);
+    const canAdmin = req.user.role && ['admin', 'dba', 'delivery'].includes(req.user.role);
+    if (!isOwner && !canAdmin) return res.status(403).json({ error: 'Not allowed to view this order' });
+    if (!order.paymentMethod) {
+      if (order.payment && Object.keys(order.payment).some(k => k && k.includes('razorpay'))) order.paymentMethod = 'Online';
+      else order.paymentMethod = 'COD';
+    }
+    return res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Allowed order statuses (only these 3)
+const ALLOWED_STATUSES = ['confirmed', 'delivered', 'cancelled'];
+
 // Admin: update order status
 router.patch('/:id/status', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    console.debug('orders.js: status update attempt', { id, status, user: req.user && { sub: req.user.sub, role: req.user.role, email: req.user.email } });
     if (!status) return res.status(400).json({ error: 'Missing status' });
+    if (!ALLOWED_STATUSES.includes(status)) return res.status(400).json({ error: 'Status must be one of: confirmed, delivered, cancelled' });
     let db;
     try {
       db = await connect();
@@ -323,18 +366,72 @@ router.patch('/:id/status', authMiddleware, adminMiddleware, async (req, res, ne
       return res.status(500).json({ error: 'Database not configured or unavailable' });
     }
     const ObjectId = require('mongodb').ObjectId;
-    if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid order id' });
+
+    // Try finding the order using several strategies to handle both ObjectId and string ids
+    let found = null;
+    const lookupCandidates = [];
+    try { if (ObjectId.isValid(id)) lookupCandidates.push({ _id: new ObjectId(id) }); } catch (e) { /* ignore */ }
+    lookupCandidates.push({ _id: id });
+    lookupCandidates.push({ id: id });
+    lookupCandidates.push({ orderId: id });
+
+    for (const q of lookupCandidates) {
+      try {
+        found = await db.collection('orders').findOne(q);
+        if (found) {
+          console.debug('orders.js: found order using', q, '->', (found._id && found._id.toString ? found._id.toString() : found._id));
+          break;
+        }
+      } catch (e) {
+        console.warn('orders.js: lookup failed for', q, e && e.message);
+      }
+    }
+
+    if (!found) {
+      console.warn('orders.js: order not found', { id, tried: lookupCandidates.map(c => Object.keys(c)[0]) });
+      const resp = { error: 'Order not found' };
+      if (process.env.NODE_ENV !== 'production') {
+        resp.tried = lookupCandidates;
+      }
+      return res.status(404).json(resp);
+    }
+
     const actor = req.user && (req.user.email || req.user.sub) || 'admin';
     const update = {
       $set: { status: status },
       $push: { statusHistory: { status: status, by: actor, at: new Date() } }
     };
-    const result = await db.collection('orders').findOneAndUpdate({ _id: new ObjectId(id) }, update, { returnDocument: 'after' });
-    if (!result.value) return res.status(404).json({ error: 'Order not found' });
+
+    const result = await db.collection('orders').findOneAndUpdate({ _id: found._id }, update, { returnDocument: 'after' });
+
+    if (!result.value) {
+      console.warn('orders.js: findOneAndUpdate returned no value (fallback)', { id: found._id, result });
+      // Attempt a fallback: updateOne and then fetch the document
+      try {
+        const upd = await db.collection('orders').updateOne({ _id: found._id }, update);
+        console.debug('orders.js: fallback updateOne result', { matchedCount: upd.matchedCount, modifiedCount: upd.modifiedCount });
+        const doc = await db.collection('orders').findOne({ _id: found._id });
+        if (doc) {
+          try { events.emit('order_updated', doc); } catch (e) { console.warn('emit failed', e && e.message); }
+          return res.json(doc);
+        }
+      } catch (e) {
+        console.error('orders.js: fallback update failed', e && e.message);
+      }
+      // still not found
+      const resp = { error: 'Order not found' };
+      if (process.env.NODE_ENV !== 'production') {
+        resp.lookup = lookupCandidates;
+        resp.findOneAndUpdateResult = result;
+      }
+      return res.status(404).json(resp);
+    }
+
     // emit update
     try { events.emit('order_updated', result.value); } catch (e) { console.warn('emit failed', e && e.message); }
     return res.json(result.value);
   } catch (err) {
+    console.error('orders.js: status update error', err && err.stack ? err.stack : err);
     next(err);
   }
 });
@@ -344,45 +441,94 @@ router.patch('/:id/delivery-status', authMiddleware, deliveryMiddleware, async (
   try {
     const { id } = req.params;
     const { status, paymentStatus } = req.body;
+    console.debug('orders.js: delivery-status update attempt', { id, status, paymentStatus, user: req.user && { sub: req.user.sub, role: req.user.role, email: req.user.email } });
     if (!status) return res.status(400).json({ error: 'Missing status' });
+    if (!ALLOWED_STATUSES.includes(status)) return res.status(400).json({ error: 'Status must be one of: confirmed, delivered, cancelled' });
+
     let db;
     try {
       db = await connect();
     } catch (err) {
       return res.status(500).json({ error: 'Database not configured or unavailable' });
     }
+
     const ObjectId = require('mongodb').ObjectId;
-    if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid order id' });
+
+    // Lookup helper (handle string id, numeric id, _id and orderId)
+    let found = null;
+    const lookupCandidates = [];
+    try { if (ObjectId.isValid(id)) lookupCandidates.push({ _id: new ObjectId(id) }); } catch (e) { /* ignore */ }
+    lookupCandidates.push({ _id: id });
+    lookupCandidates.push({ id: id });
+    lookupCandidates.push({ orderId: id });
+
+    for (const q of lookupCandidates) {
+      try {
+        found = await db.collection('orders').findOne(q);
+        if (found) {
+          console.debug('orders.js: delivery-status found order using', q, '->', (found._id && found._id.toString ? found._id.toString() : found._id));
+          break;
+        }
+      } catch (e) {
+        console.warn('orders.js: delivery-status lookup failed for', q, e && e.message);
+      }
+    }
+
+    if (!found) {
+      console.warn('orders.js: delivery-status order not found', { id, tried: lookupCandidates.map(c => Object.keys(c)[0]) });
+      const resp = { error: 'Order not found' };
+      if (process.env.NODE_ENV !== 'production') resp.tried = lookupCandidates;
+      return res.status(404).json(resp);
+    }
+
     const actor = req.user && (req.user.email || req.user.sub) || 'delivery';
-    
     const update = {
       $set: { status: status },
       $push: { statusHistory: { status: status, by: actor, at: new Date() } }
     };
-    
+
     // If payment status is provided and it's a COD order, update payment status too
     if (paymentStatus && (paymentStatus === 'paid' || paymentStatus === 'unpaid')) {
       update.$set.paymentStatus = paymentStatus;
-      if (paymentStatus === 'paid') {
-        update.$set.paidAt = new Date();
-      }
+      if (paymentStatus === 'paid') update.$set.paidAt = new Date();
+      else update.$unset = { paidAt: '' };
     }
-    
-    const result = await db.collection('orders').findOneAndUpdate({ _id: new ObjectId(id) }, update, { returnDocument: 'after' });
-    if (!result.value) return res.status(404).json({ error: 'Order not found' });
+
+    // Try findOneAndUpdate on the found._id first to get the updated doc; fallback to updateOne+find
+    const result = await db.collection('orders').findOneAndUpdate({ _id: found._id }, update, { returnDocument: 'after' });
+    if (!result.value) {
+      console.warn('orders.js: delivery-status findOneAndUpdate returned no value (fallback)', { id: found._id, result });
+      try {
+        const upd = await db.collection('orders').updateOne({ _id: found._id }, update);
+        console.debug('orders.js: delivery-status fallback updateOne', { matchedCount: upd.matchedCount, modifiedCount: upd.modifiedCount });
+        const doc = await db.collection('orders').findOne({ _id: found._id });
+        if (doc) {
+          try { events.emit('order_updated', doc); } catch (e) { console.warn('emit failed', e && e.message); }
+          return res.json(doc);
+        }
+      } catch (e) {
+        console.error('orders.js: delivery-status fallback update failed', e && e.message);
+      }
+      const resp = { error: 'Order not found' };
+      if (process.env.NODE_ENV !== 'production') { resp.lookup = lookupCandidates; resp.findOneAndUpdateResult = result; }
+      return res.status(404).json(resp);
+    }
+
     // emit update
     try { events.emit('order_updated', result.value); } catch (e) { console.warn('emit failed', e && e.message); }
     return res.json(result.value);
   } catch (err) {
+    console.error('orders.js: delivery-status error', err && err.stack ? err.stack : err);
     next(err);
   }
 });
 
-// Admin: update payment status (paid/unpaid)
-router.patch('/:id/payment', authMiddleware, superAdminMiddleware, async (req, res, next) => {
+// Admin/DBA: update payment status (paid/unpaid)
+router.patch('/:id/payment', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
     const { paymentStatus } = req.body; // expected 'paid' or 'unpaid'
+    console.debug('orders.js: payment update attempt', { id, paymentStatus, user: req.user && { sub: req.user.sub, role: req.user.role, email: req.user.email } });
     if (!paymentStatus) return res.status(400).json({ error: 'Missing paymentStatus' });
     if (!['paid','unpaid'].includes(paymentStatus)) return res.status(400).json({ error: 'Invalid paymentStatus' });
     let db;
@@ -392,21 +538,111 @@ router.patch('/:id/payment', authMiddleware, superAdminMiddleware, async (req, r
       return res.status(500).json({ error: 'Database not configured or unavailable' });
     }
     const ObjectId = require('mongodb').ObjectId;
-    if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid order id' });
+
+    // Lookup helper (handles ObjectId and string ids)
+    let found = null;
+    const lookupCandidates = [];
+    try { if (ObjectId.isValid(id)) lookupCandidates.push({ _id: new ObjectId(id) }); } catch (e) { }
+    lookupCandidates.push({ _id: id });
+    lookupCandidates.push({ id: id });
+    lookupCandidates.push({ orderId: id });
+
+    for (const q of lookupCandidates) {
+      try {
+        found = await db.collection('orders').findOne(q);
+        if (found) { console.debug('orders.js: found order for payment update using', q); break; }
+      } catch (e) { console.warn('orders.js: lookup failed for', q, e && e.message); }
+    }
+
+    if (!found) {
+      console.warn('orders.js: order not found for payment update', { id, tried: lookupCandidates.map(c => Object.keys(c)[0]) });
+      const resp = { error: 'Order not found' };
+      if (process.env.NODE_ENV !== 'production') resp.tried = lookupCandidates;
+      return res.status(404).json(resp);
+    }
+
     const actor = req.user && (req.user.email || req.user.sub) || 'admin';
     const now = new Date();
     const update = {
       $set: { paymentStatus: paymentStatus, paymentUpdatedAt: now },
       $push: { statusHistory: { status: `payment:${paymentStatus}`, by: actor, at: now } }
     };
-    if (paymentStatus === 'paid') {
-      update.$set.paidAt = now;
-    } else {
-      // mark unpaid: remove paidAt if present
-      update.$unset = { paidAt: '' };
+    if (paymentStatus === 'paid') update.$set.paidAt = now; else update.$unset = { paidAt: '' };
+
+    const result = await db.collection('orders').findOneAndUpdate({ _id: found._id }, update, { returnDocument: 'after' });
+
+    if (!result.value) {
+      console.warn('orders.js: findOneAndUpdate returned no value during payment update', { id: found._id, result });
+      try {
+        const upd = await db.collection('orders').updateOne({ _id: found._id }, update);
+        console.debug('orders.js: fallback updateOne', { matchedCount: upd.matchedCount, modifiedCount: upd.modifiedCount });
+        const doc = await db.collection('orders').findOne({ _id: found._id });
+        if (doc) { try { events.emit('order_updated', doc); } catch (e) { console.warn('emit failed', e && e.message); } return res.json(doc); }
+      } catch (e) { console.error('orders.js: fallback payment update failed', e && e.message); }
+      const resp = { error: 'Order not found' };
+      if (process.env.NODE_ENV !== 'production') { resp.lookup = lookupCandidates; resp.findOneAndUpdateResult = result; }
+      return res.status(404).json(resp);
     }
-    const result = await db.collection('orders').findOneAndUpdate({ _id: new ObjectId(id) }, update, { returnDocument: 'after' });
-    if (!result.value) return res.status(404).json({ error: 'Order not found' });
+
+    try { events.emit('order_updated', result.value); } catch (e) { console.warn('emit failed', e && e.message); }
+    return res.json(result.value);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delivery: mark COD payment collected/uncollected (delivery personnel)
+router.patch('/:id/payment-delivery', authMiddleware, deliveryMiddleware, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { paymentStatus } = req.body; // expected 'paid' or 'unpaid'
+    if (!paymentStatus) return res.status(400).json({ error: 'Missing paymentStatus' });
+    if (!['paid','unpaid'].includes(paymentStatus)) return res.status(400).json({ error: 'Invalid paymentStatus' });
+
+    let db;
+    try { db = await connect(); } catch (err) { return res.status(500).json({ error: 'Database not configured or unavailable' }); }
+    const ObjectId = require('mongodb').ObjectId;
+
+    // Only allow delivery personnel to mark COD payments
+    // Lookup order by common candidates
+    let found = null;
+    const lookupCandidates = [];
+    try { if (ObjectId.isValid(id)) lookupCandidates.push({ _id: new ObjectId(id) }); } catch (e) { }
+    lookupCandidates.push({ _id: id });
+    lookupCandidates.push({ id: id });
+    lookupCandidates.push({ orderId: id });
+
+    for (const q of lookupCandidates) {
+      try {
+        found = await db.collection('orders').findOne(q);
+        if (found) break;
+      } catch (e) { /* ignore individual lookup errors */ }
+    }
+
+    if (!found) return res.status(404).json({ error: 'Order not found' });
+
+    const paymentMethod = (found.paymentMethod || '').toString().toUpperCase();
+    if (!paymentMethod.includes('COD')) return res.status(403).json({ error: 'Only COD orders can be updated by delivery personnel' });
+
+    const actor = req.user && (req.user.email || req.user.sub) || 'delivery';
+    const now = new Date();
+    const update = {
+      $set: { paymentStatus: paymentStatus, paymentUpdatedAt: now },
+      $push: { statusHistory: { status: `payment:${paymentStatus}`, by: actor, at: now } }
+    };
+    if (paymentStatus === 'paid') update.$set.paidAt = now; else update.$unset = { paidAt: '' };
+
+    const result = await db.collection('orders').findOneAndUpdate({ _id: found._id }, update, { returnDocument: 'after' });
+    if (!result.value) {
+      // fallback
+      try {
+        await db.collection('orders').updateOne({ _id: found._id }, update);
+        const doc = await db.collection('orders').findOne({ _id: found._id });
+        if (doc) { try { events.emit('order_updated', doc); } catch (e) { /* ignore */ } return res.json(doc); }
+      } catch (e) { console.error('payment-delivery fallback failed', e && e.message); }
+      return res.status(500).json({ error: 'Could not update payment' });
+    }
+
     try { events.emit('order_updated', result.value); } catch (e) { console.warn('emit failed', e && e.message); }
     return res.json(result.value);
   } catch (err) {
@@ -415,3 +651,4 @@ router.patch('/:id/payment', authMiddleware, superAdminMiddleware, async (req, r
 });
 
 module.exports = router;
+

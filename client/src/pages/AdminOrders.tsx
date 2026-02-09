@@ -1,33 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { io, Socket } from 'socket.io-client';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Check, CreditCard } from 'lucide-react';
 
-const STATUS_STAGES = [
-  'received',
-  'confirmed',
-  'processing',
-  'ready',
-  'out_for_delivery',
-  'delivered',
-  'cancelled',
+const STATUS_OPTIONS = [
+  { value: 'confirmed', label: 'Order Confirmed' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'cancelled', label: 'Cancel' },
 ];
 
 export default function AdminOrders() {
   const { apiFetch, token, user } = useAuthContext();
   const [orders, setOrders] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any | null>(null);
-  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -167,10 +154,10 @@ export default function AdminOrders() {
                   </div>
                 </td>
                 <td className="p-2 align-top">
-                  <div className="mb-2">{o.status}</div>
-                  <select className="border rounded px-2 py-1" value={o.status} onChange={(e) => updateStatus(o._id, e.target.value)}>
-                    {STATUS_STAGES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                  <div className="mb-2">{o.status.replace(/_/g, ' ')}</div>
+                  <select className="border rounded px-2 py-1" value={['confirmed', 'delivered', 'cancelled'].includes(o.status) ? o.status : 'confirmed'} onChange={(e) => updateStatus(o._id, e.target.value)}>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
                 </td>
@@ -181,11 +168,11 @@ export default function AdminOrders() {
                       <summary className="text-sm text-blue-600 cursor-pointer">History</summary>
                       <ul className="text-xs mt-2">
                         {(o.statusHistory || []).map((h: any, i: number) => (
-                          <li key={i}>{new Date(h.at).toLocaleString()} — {h.status} by {h.by}</li>
+                          <li key={i}>{new Date(h.at).toLocaleString()} — {h.status.replace(/_/g, ' ')} by {h.by}</li>
                         ))}
                       </ul>
                     </details>
-                    <Button size="sm" variant="ghost" onClick={() => { setSelected(o); setOpen(true); }}>View Details</Button>
+                    <Button size="sm" variant="ghost" onClick={() => navigate(`/orders/${o._id}`)}>View Details</Button>
                   </div>
                 </td>
               </tr>
@@ -193,50 +180,6 @@ export default function AdminOrders() {
           </tbody>
         </table>
       </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Order Details</DialogTitle>
-            <DialogDescription>Customer and payment information</DialogDescription>
-          </DialogHeader>
-          {selected ? (
-            <div className="mt-4 space-y-3 text-sm">
-              <div><strong>Order ID:</strong> {selected._id}</div>
-              <div><strong>Customer:</strong> {selected.userName || 'Guest'} ({selected.userEmail})</div>
-              <div><strong>Contact:</strong> {selected.userPhone || 'N/A'}</div>
-              <div><strong>Address:</strong> {selected.shippingAddress || selected.address || 'N/A'}</div>
-              <div><strong>Payment Method:</strong> {selected.paymentMethod || selected.payment?.method || 'N/A'}</div>
-              <div><strong>Payment Details:</strong>
-                <pre className="text-xs bg-muted p-2 rounded mt-1">{JSON.stringify(selected.payment || selected.paymentInfo || {}, null, 2)}</pre>
-              </div>
-              <div><strong>Items:</strong>
-                <ul className="list-disc pl-6">
-                  {(selected.items || []).map((it: any, i: number) => (
-                    <li key={i}>{it.name} x{it.quantity} — ${it.price}</li>
-                  ))}
-                </ul>
-              </div>
-              <div><strong>Coupon:</strong>
-                {selected.coupon ? (
-                  <div className="mt-1">
-                    <div>Code: {selected.coupon.code}</div>
-                    <div>Type: {selected.coupon.type} ({selected.coupon.value}{selected.coupon.type === 'percentage' ? '%' : '$'})</div>
-                    <div>Discount: ${selected.coupon.discountAmount}</div>
-                    {selected.coupon.commissionAmount > 0 && <div>Commission: ${selected.coupon.commissionAmount}</div>}
-                  </div>
-                ) : (
-                  'None'
-                )}
-              </div>
-            </div>
-          ) : null}
-          <DialogFooter className="mt-4">
-            <DialogClose asChild>
-              <Button variant="ghost">Close</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

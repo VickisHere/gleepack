@@ -9,6 +9,7 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [signupSuggested, setSignupSuggested] = useState(false);
   const auth = useAuth();
   const navigate = useNavigate();
 
@@ -26,7 +27,7 @@ const Login: React.FC = () => {
   }, []);
 
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     window.location.href = `${apiUrl}/api/auth/google`;
   };
 
@@ -37,7 +38,11 @@ const Login: React.FC = () => {
       await auth.login(email, password);
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Login failed');
+      const msg = err.message || 'Login failed';
+      setError(msg);
+      if (msg.includes('User not found')) {
+        setSignupSuggested(true);
+      }
     }
   }
 
@@ -60,6 +65,11 @@ const Login: React.FC = () => {
                 <Input type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} />
               </label>
               {error && <div className="text-sm text-destructive">{error}</div>}
+              {signupSuggested && (
+                <div className="text-sm text-muted-foreground mt-2">
+                  No account found — <Link to="/register" state={{ email }} className="text-primary">Create one</Link>
+                </div>
+              )}
               <Button type="submit" className="w-full" size="lg">Sign In</Button>
             </form>
             <div className="relative my-4">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 
 const Register: React.FC = () => {
   const [email, setEmail] = useState('');
+  const { state } = (useLocation() as any) || {};
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -21,13 +22,18 @@ const Register: React.FC = () => {
     script.defer = true;
     document.head.appendChild(script);
 
+    // Prefill email if provided via navigation state
+    if (state && state.email) {
+      setEmail(state.email);
+    }
+
     return () => {
       document.head.removeChild(script);
     };
   }, []);
 
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     window.location.href = `${apiUrl}/api/auth/google`;
   };
 

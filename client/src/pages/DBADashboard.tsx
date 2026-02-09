@@ -3,19 +3,13 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { io, Socket } from 'socket.io-client';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-    DialogClose,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import Layout from '@/components/layout/Layout';
 import { Check, CreditCard, Menu, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 // recharts install kar:
 // npm install recharts
@@ -34,36 +28,16 @@ import {
     Legend,
 } from 'recharts';
 
-const STATUS_STAGES = [
-    'received',
-    'confirmed',
-    'processing',
-    'ready',
-    'out_for_delivery',
-    'delivered',
-    'cancelled',
-];
+const STATUS_STAGES = ['confirmed', 'delivered', 'cancelled'];
 
 const COLORS = ['#a855f7', '#6366f1', '#22c55e', '#f97316', '#e11d48', '#0ea5e9'];
 
 export default function DBADashboard() {
     const { apiFetch, token, user } = useAuthContext();
 
-    // Only dba can access this panel
-    if (user?.role !== 'dba') {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
-                    <p className="text-gray-600">You do not have permission to access this page.</p>
-                </div>
-            </div>
-        );
-    }
     const [orders, setOrders] = useState<any[]>([]);
-    const [selected, setSelected] = useState<any | null>(null);
-    const [open, setOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'employees'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'orders' | 'products'>('orders');
+    const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const socketRef = useRef<Socket | null>(null);
 
@@ -101,7 +75,8 @@ export default function DBADashboard() {
     }, [apiFetch, token]);
 
     const updateStatus = async (id: string, status: string) => {
-        // Optimistic update
+        // Optimistic update (keep prev state)
+        const prev = orders;
         setOrders((s) => s.map((o) => (o._id === id ? { ...o, status } : o)));
 
         try {
@@ -112,28 +87,35 @@ export default function DBADashboard() {
             if (res.ok) {
                 const updated = await res.json();
                 setOrders((s) => s.map((o) => (o._id === updated._id ? updated : o)));
+                toast.success('Status updated');
             } else {
-                console.error('Status update failed', await res.text());
+                const txt = await res.text().catch(() => '');
+                console.error('Status update failed', txt);
+                setOrders(prev);
+                toast.error('Failed to update status');
             }
         } catch (e) {
             console.error(e);
+            setOrders(prev);
+            toast.error('Failed to update status');
         }
     };
 
     const togglePayment = async (id: string, current: string | undefined) => {
-        // Only admin can modify payment status
-        if (user?.role !== 'admin') {
-            alert('Only administrators can modify payment status');
+        // Allow admin or dba to modify payment status
+        if (!user || (user.role !== 'admin' && user.role !== 'dba')) {
+            toast.error('You are not authorized to update payment status');
             return;
         }
         const next = current === 'paid' ? 'unpaid' : 'paid';
         // Confirmation required when marking as Paid
         if (next === 'paid') {
-            const confirmed = window.confirm('Confirm: mark this order as PAID? This action will record the admin and timestamp.');
+            const confirmed = window.confirm('Confirm: mark this order as PAID? This action will record the user and timestamp.');
             if (!confirmed) return;
         }
 
-        // Optimistic update
+        // Optimistic update (keep a copy to revert on failure)
+        const prev = orders;
         setOrders((s) => s.map((o) => (o._id === id ? { ...o, paymentStatus: next } : o)));
 
         try {
@@ -144,11 +126,17 @@ export default function DBADashboard() {
             if (res.ok) {
                 const updated = await res.json();
                 setOrders((s) => s.map((o) => (o._id === updated._id ? updated : o)));
+                toast.success(`Payment status updated to ${next}`);
             } else {
-                console.error('Payment update failed', await res.text());
+                const txt = await res.text().catch(() => '');
+                console.error('Payment update failed', txt);
+                setOrders(prev); // revert
+                toast.error('Failed to update payment status');
             }
         } catch (e) {
             console.error(e);
+            setOrders(prev);
+            toast.error('Failed to update payment status');
         }
     };
 
@@ -160,274 +148,63 @@ export default function DBADashboard() {
         ),
     };
 
-    if (!user || user.role !== 'dba') {
+    // Allow both DBA and Admin users to access this panel
+    if (!user || (user.role !== 'dba' && user.role !== 'admin')) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#050014] text-purple-100">
-                Access denied. DBA privileges required.
+            <div className="min-h-screen flex items-center justify-center">
+                Access denied. DBA or Admin privileges required.
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#050014] text-white flex">
-            {/* Mobile menu overlay */}
-            {mobileMenuOpen && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-                    onClick={() => setMobileMenuOpen(false)}
-                />
-            )}
-
-            {/* Sidebar */}
-            <aside className={`fixed md:relative z-50 md:z-auto inset-y-0 left-0 w-60 flex-col border-r border-purple-800/30 bg-[#07001b] transform md:transform-none -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : ''}`}>
-                <div className="px-4 py-4 text-xl font-bold text-purple-300 flex items-center justify-between">
-                    DBA Panel
-                    <button
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="md:hidden p-1 rounded hover:bg-purple-900/40"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
-                <nav className="mt-4 space-y-1 px-2">
-                    <button
-                        onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'dashboard'
-                                ? 'bg-purple-600 text-white'
-                                : 'text-purple-200 hover:bg-purple-900/40'
-                            }`}
-                    >
-                        Overview
-                    </button>
-                    <button
-                        onClick={() => { setActiveTab('orders'); setMobileMenuOpen(false); }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'orders'
-                                ? 'bg-purple-600 text-white'
-                                : 'text-purple-200 hover:bg-purple-900/40'
-                            }`}
-                    >
-                        Orders
-                    </button>
-                    <button
-                        onClick={() => { setActiveTab('products'); setMobileMenuOpen(false); }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'products'
-                                ? 'bg-purple-600 text-white'
-                                : 'text-purple-200 hover:bg-purple-900/40'
-                            }`}
-                    >
-                        Products
-                    </button>
-                    <button
-                        onClick={() => { setActiveTab('employees'); setMobileMenuOpen(false); }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'employees'
-                                ? 'bg-purple-600 text-white'
-                                : 'text-purple-200 hover:bg-purple-900/40'
-                            }`}
-                    >
-                        Employees
-                    </button>
-                </nav>
-
-                {/* Back to Home Button */}
-                <div className="mt-8 px-2">
-                    <a
-                        href="/"
-                        className="w-full flex items-center justify-center px-3 py-3 rounded-lg text-sm bg-purple-700 text-white hover:bg-purple-600 transition-colors"
-                    >
-                        ← Back to Home
-                    </a>
-                </div>
-            </aside>
-
-            {/* Main */}
-            <main className="flex-1 px-4 md:px-8 py-6">
-                <header className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setMobileMenuOpen(true)}
-                            className="md:hidden p-2 rounded hover:bg-purple-900/40"
-                        >
-                            <Menu size={20} />
-                        </button>
-                        <div>
-                            <h1 className="text-2xl font-bold text-white">
-                                {activeTab === 'dashboard' ? 'Dashboard Overview' :
-                                 activeTab === 'orders' ? 'Orders' :
-                                 activeTab === 'employees' ? 'Employee Management' : 'Products'}
-                            </h1>
-                            <p className="text-xs text-purple-200/70">
-                                Real-time orders and operational analytics.
-                            </p>
-                        </div>
-                    </div>
-                </header>
-
-                {activeTab === 'dashboard' ? (
-                    <DashboardOverview orders={orders} userRole={user?.role} />
-                ) : activeTab === 'orders' ? (
-                    <OrdersTable
-                        orders={orders}
-                        stats={stats}
-                        updateStatus={updateStatus}
-                        togglePayment={togglePayment}
-                        setSelected={setSelected}
-                        setOpen={setOpen}
-                        userRole={user?.role}
-                    />
-                ) : activeTab === 'employees' ? (
-                    <EmployeesManager />
-                ) : (
-                    <ProductsManager socketRef={socketRef} />
-                )}
-
-                {/* Order details dialog */}
-                <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50">
-                        <DialogHeader>
-                            <DialogTitle className="text-purple-100">Order Details</DialogTitle>
-                            <DialogDescription className="text-purple-300/80">
-                                Customer and payment information
-                            </DialogDescription>
-                        </DialogHeader>
-                        {selected ? (
-                            <div className="mt-4 space-y-3 text-sm">
-                                <div>
-                                    <strong>Order ID:</strong> {selected._id}
-                                </div>
-                                <div>
-                                    <strong>Customer:</strong> {selected.contact?.name || selected.userName || 'Guest'}
-                                </div>
-                                <div>
-                                    <strong>Phone:</strong> {selected.contact?.phone || selected.userPhone || 'N/A'}
-                                </div>
-                                <div>
-                                    <strong>Address:</strong>{' '}
-                                    {selected.contact ? `${selected.contact.flatNo || ''}, ${selected.contact.area || ''}${selected.contact.landmark ? ', ' + selected.contact.landmark : ''} (${selected.contact.addressType || 'home'})` : selected.shippingAddress || selected.address || 'N/A'}
-                                </div>
-                                <div>
-                                    <strong>Payment Method:</strong>{' '}
-                                    {selected.paymentMethod || selected.payment?.method || 'N/A'}
-                                </div>
-                                <div>
-                                    <strong>Payment Details:</strong>
-                                    <pre className="text-xs bg-[#050014] text-purple-100 p-2 rounded mt-1 overflow-auto max-h-52">
-                                        {JSON.stringify(
-                                            selected.payment || selected.paymentInfo || {},
-                                            null,
-                                            2,
-                                        )}
-                                    </pre>
-                                </div>
-                                <div>
-                                    <strong>Items:</strong>
-                                    <ul className="list-disc pl-6 mt-1">
-                                        {(selected.items || []).map((it: any, i: number) => (
-                                            <li key={i}>
-                                                {it.name} x{it.quantity} — ₹{it.price}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
+        <Layout>
+            <div className="section-padding bg-white text-gray-900 min-h-screen">
+                <div className="container-custom grid grid-cols-1 md:grid-cols-12 gap-6">
+                    {/* Sidebar as left column */}
+                    <aside className="md:col-span-3 lg:col-span-2">
+                        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-lg font-semibold">DBA Panel</h3>
+                                <button className="md:hidden p-1 rounded hover:bg-muted" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                                    <X size={18} />
+                                </button>
                             </div>
-                        ) : null}
-                        <DialogFooter className="mt-4">
-                            <DialogClose asChild>
-                                <Button variant="ghost">Close</Button>
-                            </DialogClose>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </main>
-        </div>
-    );
-}
+                            <nav className="space-y-2">
+                                <button onClick={() => setActiveTab('orders')} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'orders' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Orders</button>
+                                <button onClick={() => setActiveTab('products')} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeTab === 'products' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Products</button>
+                            </nav>
+                            <div className="mt-4">
+                                <a href="/" className="inline-flex items-center justify-center px-3 py-2 bg-outline rounded text-sm">← Back to Home</a>
+                            </div>
+                        </div>
+                    </aside>
 
-/* -------------- DASHBOARD OVERVIEW (GRAPHS) -------------- */
+                    {/* Main content */}
+                    <main className="md:col-span-9 lg:col-span-10">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h1 className="text-2xl font-bold text-foreground">{activeTab === 'orders' ? 'Orders' : 'Products'}</h1>
+                                <p className="text-sm text-muted-foreground">Real-time orders and operational analytics.</p>
+                            </div>
+                        </div>
 
-function DashboardOverview({ orders, userRole }: { orders: any[], userRole?: string }) {
-    const dailyOrders = getDailyOrders(orders);
-    const dailyRevenue = getRevenueByDay(orders);
-    const topKits = getTopKits(orders);
-    const statusDist = getStatusDistribution(orders, STATUS_STAGES);
-
-    const totalRevenue = dailyRevenue.reduce((s, d) => s + d.revenue, 0);
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const todayRevenue = dailyRevenue.find((d) => d.date === todayStr)?.revenue || 0;
-    const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
-
-    return (
-        <div className="space-y-6">
-            {/* top cards */}
-            <div className="grid gap-4 md:grid-cols-4">
-                <StatCard label="Total Orders" value={orders.length} />
-                <StatCard label="Delivered" value={deliveredCount} />
-            </div>
-
-            {/* charts */}
-            <div className="grid gap-6 lg:grid-cols-3">
-                <div className="col-span-2 bg-[#0b021c] border border-purple-700/40 rounded-xl p-4">
-                    <h2 className="text-sm font-semibold text-purple-200 mb-2">Orders per Day</h2>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={dailyOrders}>
-                                <XAxis dataKey="date" stroke="#a855f7" />
-                                <YAxis stroke="#a855f7" />
-                                <Tooltip />
-                                <Line
-                                    type="monotone"
-                                    dataKey="count"
-                                    stroke="#a855f7"
-                                    strokeWidth={2}
-                                    dot={false}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl p-4">
-                    <h2 className="text-sm font-semibold text-purple-200 mb-2">
-                        Status Breakdown
-                    </h2>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={statusDist}
-                                    dataKey="value"
-                                    nameKey="status"
-                                    outerRadius={80}
-                                    label
-                                >
-                                    {statusDist.map((_, idx) => (
-                                        <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Legend />
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
+                        {activeTab === 'orders' ? (
+                            <OrdersTable
+                                orders={orders}
+                                stats={stats}
+                                updateStatus={updateStatus}
+                                togglePayment={togglePayment}
+                                onViewOrder={(orderId) => navigate(`/orders/${orderId}`)}
+                                userRole={user?.role}
+                            />
+                        ) : (
+                            <ProductsManager socketRef={socketRef} />
+                        )}
+                    </main>
                 </div>
             </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-                <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl p-4">
-                    <h2 className="text-sm font-semibold text-purple-200 mb-2">Top Kits</h2>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={topKits}>
-                                <XAxis dataKey="name" stroke="#a855f7" />
-                                <YAxis stroke="#a855f7" />
-                                <Tooltip />
-                                <Bar dataKey="qty" fill="#a855f7" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </div>
-
-        </div>
+        </Layout>
     );
 }
 
@@ -438,8 +215,7 @@ function OrdersTable({
     stats,
     updateStatus,
     togglePayment,
-    setSelected,
-    setOpen,
+    onViewOrder,
     userRole,
 }: any) {
     return (
@@ -451,9 +227,9 @@ function OrdersTable({
                 ))}
             </div>
 
-            <div className="overflow-auto border border-purple-800/40 rounded-xl bg-[#07001b]">
+            <div className="overflow-auto border border-gray-200 rounded-xl bg-white">
                 <table className="min-w-full text-sm">
-                    <thead className="bg-purple-900/40 text-purple-100">
+                    <thead className="bg-gray-50 text-gray-700">
                         <tr>
                             {[
                                 'Order ID',
@@ -478,20 +254,20 @@ function OrdersTable({
                         {orders.map((o: any) => (
                             <tr
                                 key={o._id}
-                                className="border-t border-purple-800/40 hover:bg-purple-900/20"
+                                className="border-t border-gray-100 hover:bg-gray-50"
                             >
                                 <td className="p-2 align-top text-xs break-all">{o._id}</td>
 
                                 <td className="p-2 align-top">
-                                    <div className="font-medium text-purple-100">
+                                    <div className="font-medium text-gray-900">
                                         {o.userName || o.userEmail || 'Guest'}
                                     </div>
-                                    <div className="text-xs text-purple-300/80">{o.userEmail}</div>
+                                    <div className="text-xs text-gray-500">{o.userEmail}</div>
                                 </td>
 
                                 <td className="p-2 align-top">
                                     {Array.isArray(o.items) ? (
-                                        <ul className="list-disc pl-4 space-y-1 text-xs text-purple-100/90">
+                                        <ul className="list-disc pl-4 space-y-1 text-xs text-gray-700">
                                             {o.items.map((it: any, i: number) => (
                                                 <li key={i}>
                                                     {it.name} x{it.quantity} — ₹{it.price}
@@ -499,11 +275,11 @@ function OrdersTable({
                                             ))}
                                         </ul>
                                     ) : (
-                                        <div className="text-xs text-purple-300/80">No items</div>
+                                        <div className="text-xs text-gray-500">No items</div>
                                     )}
                                 </td>
 
-                                <td className="p-2 align-top text-sm font-semibold text-purple-100">
+                                <td className="p-2 align-top text-sm font-semibold text-gray-900">
                                     ₹{o.total || o.amount || 0}
                                 </td>
 
@@ -511,19 +287,19 @@ function OrdersTable({
                                     <div className="flex items-center gap-2">
                                         <span
                                             className={`px-2 py-1 rounded-full text-xs font-medium ${o.paymentStatus === 'paid'
-                                                    ? 'bg-green-500/20 text-green-300 border border-green-500/40'
-                                                    : 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/40'
+                                                    ? 'bg-green-100 text-green-800 border border-green-200'
+                                                    : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
                                                 }`}
                                         >
                                             {o.paymentStatus || 'unpaid'}
                                         </span>
-                                        {userRole === 'admin' && (
+                                        {(userRole === 'admin' || userRole === 'dba') && (
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
                                                 onClick={() => togglePayment(o._id, o.paymentStatus)}
                                                 title={o.paymentStatus === 'paid' ? 'Mark unpaid' : 'Mark paid'}
-                                                className="text-purple-300"
+                                                className="text-gray-700"
                                             >
                                                 {o.paymentStatus === 'paid' ? (
                                                     <Check className="h-4 w-4" />
@@ -536,36 +312,34 @@ function OrdersTable({
                                 </td>
 
                                 <td className="p-2 align-top">
-                                    <div className="mb-2 text-xs font-medium text-purple-100">
-                                        {o.status}
+                                    <div className="mb-2 text-xs font-medium text-gray-900">
+                                        {o.status.replace(/_/g, ' ')}
                                     </div>
                                     <select
-                                        className="border border-purple-700 bg-[#050014] text-xs rounded px-2 py-1 text-purple-100"
-                                        value={o.status}
+                                        className="border border-gray-300 bg-white text-xs rounded px-2 py-1 text-gray-900"
+                                        value={['confirmed', 'delivered', 'cancelled'].includes(o.status) ? o.status : 'confirmed'}
                                         onChange={(e) => updateStatus(o._id, e.target.value)}
                                     >
-                                        {STATUS_STAGES.map((s) => (
-                                            <option key={s} value={s}>
-                                                {s}
-                                            </option>
-                                        ))}
+                                        <option value="confirmed">Order Confirmed</option>
+                                        <option value="delivered">Delivered</option>
+                                        <option value="cancelled">Cancel</option>
                                     </select>
                                 </td>
 
-                                <td className="p-2 align-top text-xs text-purple-300/80">
+                                <td className="p-2 align-top text-xs text-gray-500">
                                     {new Date(o.createdAt).toLocaleString()}
                                 </td>
 
                                 <td className="p-2 align-top">
                                     <div className="flex flex-col gap-2">
                                         <details>
-                                            <summary className="text-xs text-purple-300 cursor-pointer hover:text-purple-100">
+                                            <summary className="text-xs text-gray-700 cursor-pointer hover:text-gray-900">
                                                 History
                                             </summary>
-                                            <ul className="text-xs mt-2 text-purple-200 space-y-1">
+                                            <ul className="text-xs mt-2 text-gray-600 space-y-1">
                                                 {(o.statusHistory || []).map((h: any, i: number) => (
                                                     <li key={i}>
-                                                        {new Date(h.at).toLocaleString()} — {h.status} by {h.by}
+                                                        {new Date(h.at).toLocaleString()} — {h.status.replace(/_/g, ' ')} by {h.by}
                                                     </li>
                                                 ))}
                                             </ul>
@@ -573,11 +347,8 @@ function OrdersTable({
                                         <Button
                                             size="sm"
                                             variant="ghost"
-                                            className="text-xs justify-start text-purple-100 hover:bg-purple-900/50"
-                                            onClick={() => {
-                                                setSelected(o);
-                                                setOpen(true);
-                                            }}
+                                            className="text-xs justify-start text-gray-700 hover:bg-gray-100"
+                                            onClick={() => onViewOrder(o._id)}
                                         >
                                             View Details
                                         </Button>
@@ -596,11 +367,11 @@ function OrdersTable({
 
 function StatCard({ label, value }: { label: string; value: React.ReactNode }) {
     return (
-        <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl p-4">
-            <div className="text-xs uppercase tracking-wide text-purple-300/80">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="text-xs uppercase tracking-wide text-gray-500">
                 {label}
             </div>
-            <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
+            <div className="mt-2 text-2xl font-semibold text-gray-900">{value}</div>
         </div>
     );
 }
@@ -658,12 +429,7 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
         { icon: '🎈', name: 'Balloons', nameHi: '', quantity: '25 pcs' },
         { icon: '🎂', name: 'Cake', nameHi: '', quantity: '1 pc' },
     ]);
-    type Addon = { id: string; icon: string; name: string; nameHi: string; price: number };
-    const [addons, setAddons] = React.useState<Addon[]>([
-        { id: 'extra-cake', icon: '🍰', name: 'Extra Cake', nameHi: 'अतिरिक्त केक', price: 200 },
-        { id: 'photo-frame', icon: '🖼️', name: 'Photo Frame', nameHi: 'फोटो फ्रेम', price: 150 },
-        { id: 'candle-set', icon: '🕯️', name: 'Candle Set', nameHi: 'मोमबत्ती सेट', price: 100 },
-    ]);
+    // Note: DBA panel does not expose add-ons UI (handled by admin panel)
     const [editingId, setEditingId] = React.useState<string | null>(null);
     const [uploadFile, setUploadFile] = React.useState<File | null>(null);
 
@@ -715,7 +481,7 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
 
     const handleCreate = async () => {
             try {
-                const payload = Object.assign({}, form, { items, addons });
+                const payload = Object.assign({}, form, { items });
                 console.debug('Creating product payload:', payload);
                 let res;
                 try {
@@ -748,7 +514,6 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
             setProducts((s) => [created, ...s]);
             setForm({ id: '', name: '', nameHi: '', category: 'birthday', tier: 'basic', price: 0, originalPrice: 0, idealGuests: '', description: '', descriptionHi: '', image: '' });
             setItems([{ icon: '🎈', name: 'Balloons', nameHi: '', quantity: '25 pcs' }, { icon: '🎂', name: 'Cake', nameHi: '', quantity: '1 pc' }]);
-            setAddons([{ id: 'extra-cake', icon: '🍰', name: 'Extra Cake', nameHi: 'अतिरिक्त केक', price: 200 }, { id: 'photo-frame', icon: '🖼️', name: 'Photo Frame', nameHi: 'फोटो फ्रेम', price: 150 }, { id: 'candle-set', icon: '🕯️', name: 'Candle Set', nameHi: 'मोमबत्ती सेट', price: 100 }]);
             setUploadFile(null);
             alert('Product created');
         } catch (e) {
@@ -773,14 +538,14 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
             image: p.image || '',
         });
         setItems(p.items && Array.isArray(p.items) && p.items.length ? p.items : [{ icon: '🎈', name: 'Balloons', nameHi: '', quantity: '25 pcs' }, { icon: '🎂', name: 'Cake', nameHi: '', quantity: '1 pc' }]);
-        setAddons(p.addons && Array.isArray(p.addons) && p.addons.length ? p.addons : [{ id: 'extra-cake', icon: '🍰', name: 'Extra Cake', nameHi: 'अतिरिक्त केक', price: 200 }, { id: 'photo-frame', icon: '🖼️', name: 'Photo Frame', nameHi: 'फोटो फ्रेम', price: 150 }, { id: 'candle-set', icon: '🕯️', name: 'Candle Set', nameHi: 'मोमबत्ती सेट', price: 100 }]);
+        // DBA panel intentionally does not load or edit add-ons here
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleUpdate = async () => {
         if (!editingId) return;
             try {
-                const payload = Object.assign({}, form, { items, addons });
+                const payload = Object.assign({}, form, { items });
                 console.debug('Updating product payload:', editingId, payload);
                 let res;
                 try {
@@ -791,11 +556,38 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
                     return;
                 }
                 if (!res.ok) {
+                    const status = res.status;
                     const text = await res.text().catch(() => '');
                     let errorData: any = {};
                     try { errorData = JSON.parse(text || '{}'); } catch (e) { errorData = { raw: text }; }
-                    console.error('Update product failed', res.status, errorData);
-                    alert(errorData.error || `Failed to update product (${res.status})`);
+                    console.error('Update product failed', status, errorData);
+
+                    // If API returned 404, re-check the products list — sometimes the
+                    // DB was updated but the response came back as Not found. If
+                    // we see the updated product on the list, treat it as success.
+                    if (status === 404) {
+                        try {
+                            const refresh = await apiFetch('/api/products');
+                            if (refresh.ok) {
+                                const list = await refresh.json();
+                                const found = list.find((x: any) => (x.id || x._id) === (editingId));
+                                if (found && String(found.name || '') === String(payload.name || '')) {
+                                    // Apply the refreshed product and treat as success
+                                    setProducts((s) => s.map((p) => (p.id === (found.id || found._id) ? found : p)));
+                                    setForm({ id: '', name: '', nameHi: '', category: 'birthday', tier: 'basic', price: 0, originalPrice: 0, idealGuests: '', description: '', descriptionHi: '', image: '' });
+                                    setItems([{ icon: '🎈', name: 'Balloons', nameHi: '', quantity: '25 pcs' }, { icon: '🎂', name: 'Cake', nameHi: '', quantity: '1 pc' }]);
+                                    setEditingId(null);
+                                    setUploadFile(null);
+                                    alert('Product updated');
+                                    return;
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Re-check products failed', e);
+                        }
+                    }
+
+                    alert(errorData.error || `Failed to update product (${status})`);
                     return;
                 }
             const updated = await res.json();
@@ -813,7 +605,6 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
             setProducts((s) => s.map((p) => (p.id === updated.id ? updated : p)));
             setForm({ id: '', name: '', nameHi: '', category: 'birthday', tier: 'basic', price: 0, originalPrice: 0, idealGuests: '', description: '', descriptionHi: '', image: '' });
             setItems([{ icon: '🎈', name: 'Balloons', nameHi: '', quantity: '25 pcs' }, { icon: '🎂', name: 'Cake', nameHi: '', quantity: '1 pc' }]);
-            setAddons([{ id: 'extra-cake', icon: '🍰', name: 'Extra Cake', nameHi: 'अतिरिक्त केक', price: 200 }, { id: 'photo-frame', icon: '🖼️', name: 'Photo Frame', nameHi: 'फोटो फ्रेम', price: 150 }, { id: 'candle-set', icon: '🕯️', name: 'Candle Set', nameHi: 'मोमबत्ती सेट', price: 100 }]);
             setEditingId(null);
             setUploadFile(null);
             alert('Product updated');
@@ -843,38 +634,38 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
 
     return (
         <div className="space-y-6">
-            <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl p-4">
-                <h2 className="text-lg font-semibold text-purple-200 mb-3">{editingId ? 'Edit Product' : 'Add Product'}</h2>
+            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">{editingId ? 'Edit Product' : 'Add Product'}</h2>
                                 <div className="grid md:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-xs text-purple-300">Product ID (optional)</label>
-                                            <input placeholder="birthday-basic" value={form.id} onChange={e => setForm({...form, id: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
-                                            <div className="text-xxs text-purple-400 mt-1">Unique identifier used in URLs and references. If left blank an ID will be generated.</div>
+                                            <label className="text-xs text-gray-600">Product ID (optional)</label>
+                                            <input placeholder="birthday-basic" value={form.id} onChange={e => setForm({...form, id: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
+                                            <div className="text-xxs text-gray-500 mt-1">Unique identifier used in URLs and references. If left blank an ID will be generated.</div>
                                         </div>
 
                                         <div>
-                                            <label className="text-xs text-purple-300">Name (EN)</label>
-                                            <input placeholder="Birthday Basic Kit" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
+                                            <label className="text-xs text-gray-600">Name (EN)</label>
+                                            <input placeholder="Birthday Basic Kit" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
                                         </div>
 
                                         <div>
-                                            <label className="text-xs text-purple-300">Name (Hindi) (optional)</label>
-                                            <input placeholder="जन्मदिन बेसिक किट" value={form.nameHi} onChange={e => setForm({...form, nameHi: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
+                                            <label className="text-xs text-gray-600">Name (Hindi) (optional)</label>
+                                            <input placeholder="जन्मदिन बेसिक किट" value={form.nameHi} onChange={e => setForm({...form, nameHi: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
                                         </div>
 
                                         <div>
                                             <label className="text-xs text-purple-300">Category</label>
-                                            <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full">
+                                            <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900">
                                                 <option value="birthday">birthday</option>
                                                 <option value="anniversary">anniversary</option>
                                                 <option value="festival">festival</option>
                                             </select>
-                                            <div className="text-xxs text-purple-400 mt-1">Used for filtering on the public site.</div>
+                                            <div className="text-xxs text-gray-500 mt-1">Used for filtering on the public site.</div>
                                         </div>
 
                                         <div>
                                             <label className="text-xs text-purple-300">Tier</label>
-                                            <select value={form.tier} onChange={e => setForm({...form, tier: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full">
+                                            <select value={form.tier} onChange={e => setForm({...form, tier: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900">
                                                 <option value="basic">basic</option>
                                                 <option value="premium">premium</option>
                                                 <option value="platinum">platinum</option>
@@ -884,39 +675,39 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
 
                                         <div>
                                             <label className="text-xs text-purple-300">Price (INR)</label>
-                                            <input type="number" placeholder="999" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
+                                            <input type="number" placeholder="999" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
                                         </div>
 
                                         <div>
                                             <label className="text-xs text-purple-300">Original Price (optional)</label>
-                                            <input type="number" placeholder="1299" value={form.originalPrice} onChange={e => setForm({...form, originalPrice: Number(e.target.value)})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
+                                            <input type="number" placeholder="1299" value={form.originalPrice} onChange={e => setForm({...form, originalPrice: Number(e.target.value)})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
                                         </div>
 
                                         <div>
                                             <label className="text-xs text-purple-300">Ideal Guests</label>
-                                            <input placeholder="10-15" value={form.idealGuests} onChange={e => setForm({...form, idealGuests: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
+                                            <input placeholder="10-15" value={form.idealGuests} onChange={e => setForm({...form, idealGuests: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
                                         </div>
 
                                         <div>
                                             <label className="text-xs text-purple-300">Image URL (optional)</label>
-                                            <input placeholder="/images/kits/birthday-basic.jpg" value={form.image} onChange={e => setForm({...form, image: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
-                                            <div className="text-xxs text-purple-400 mt-1">If provided, this image will be used in the product card. Use full or site-relative URLs. You can also upload a file below.</div>
+                                            <input placeholder="/images/kits/birthday-basic.jpg" value={form.image} onChange={e => setForm({...form, image: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
+                                            <div className="text-xxs text-gray-500 mt-1">If provided, this image will be used in the product card. Use full or site-relative URLs. You can also upload a file below.</div>
                                         </div>
 
                                         <div>
                                             <label className="text-xs text-purple-300">Upload Image (optional)</label>
-                                            <input type="file" accept="image/*" onChange={e => setUploadFile(e.target.files ? e.target.files[0] : null)} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" />
-                                            <div className="text-xxs text-purple-400 mt-1">Choose an image to upload; it will be stored under /public/images/ and the product updated automatically.</div>
+                                            <input type="file" accept="image/*" onChange={e => setUploadFile(e.target.files ? e.target.files[0] : null)} className="p-2 bg-white border border-gray-200 rounded w-full text-sm text-gray-900" />
+                                            <div className="text-xxs text-gray-500 mt-1">Choose an image to upload; it will be stored under /public/images/ and the product updated automatically.</div>
                                         </div>
 
                                         <div className="col-span-2">
                                             <label className="text-xs text-purple-300">Description (EN)</label>
-                                            <textarea placeholder="Short description visible on the product card" value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
+                                            <textarea placeholder="Short description visible on the product card" value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
                                         </div>
 
                                         <div className="col-span-2">
                                             <label className="text-xs text-purple-300">Description (Hindi)</label>
-                                            <textarea placeholder="हिंदी विवरण" value={form.descriptionHi} onChange={e => setForm({...form, descriptionHi: e.target.value})} className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full" />
+                                            <textarea placeholder="हिंदी विवरण" value={form.descriptionHi} onChange={e => setForm({...form, descriptionHi: e.target.value})} className="p-2 bg-white border border-gray-200 rounded w-full text-gray-900" />
                                         </div>
 
                                         <div className="col-span-2">
@@ -924,10 +715,10 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
                                             <div className="space-y-2 mt-2">
                                                 {items.map((it, idx) => (
                                                     <div key={idx} className="grid grid-cols-3 gap-2 items-center">
-                                                        <input className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" value={it.icon || ''} onChange={e => setItems(s => { const copy = [...s]; copy[idx] = {...copy[idx], icon: e.target.value}; return copy; })} placeholder="🎈" />
-                                                        <input className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" value={it.name || ''} onChange={e => setItems(s => { const copy = [...s]; copy[idx] = {...copy[idx], name: e.target.value}; return copy; })} placeholder="Balloons" />
+                                                        <input className="p-2 bg-white border border-gray-200 rounded w-full text-sm text-gray-900" value={it.icon || ''} onChange={e => setItems(s => { const copy = [...s]; copy[idx] = {...copy[idx], icon: e.target.value}; return copy; })} placeholder="🎈" />
+                                                        <input className="p-2 bg-white border border-gray-200 rounded w-full text-sm text-gray-900" value={it.name || ''} onChange={e => setItems(s => { const copy = [...s]; copy[idx] = {...copy[idx], name: e.target.value}; return copy; })} placeholder="Balloons" />
                                                         <div className="flex gap-2">
-                                                            <input className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" value={it.quantity || ''} onChange={e => setItems(s => { const copy = [...s]; copy[idx] = {...copy[idx], quantity: e.target.value}; return copy; })} placeholder="25 pcs" />
+                                                            <input className="p-2 bg-white border border-gray-200 rounded w-full text-sm text-gray-900" value={it.quantity || ''} onChange={e => setItems(s => { const copy = [...s]; copy[idx] = {...copy[idx], quantity: e.target.value}; return copy; })} placeholder="25 pcs" />
                                                             <button className="text-xs text-red-400" onClick={() => setItems(s => s.filter((_, i) => i !== idx))}>Remove</button>
                                                         </div>
                                                     </div>
@@ -936,30 +727,10 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
                                                     <Button size="sm" onClick={() => setItems(s => [...s, { icon: '', name: '', nameHi: '', quantity: '' }])}>Add Item</Button>
                                                 </div>
                                             </div>
-                                            <div className="text-xxs text-purple-400 mt-1">Use the small inputs to edit item icon, name and quantity. Two example rows are prefilled.</div>
+                                            <div className="text-xxs text-gray-500 mt-1">Use the small inputs to edit item icon, name and quantity. Two example rows are prefilled.</div>
                                         </div>
 
-                                        <div className="col-span-2">
-                                            <label className="text-xs text-purple-300">Add-ons</label>
-                                            <div className="space-y-2 mt-2">
-                                                {addons.map((ad, idx) => (
-                                                    <div key={idx} className="grid grid-cols-5 gap-2 items-center">
-                                                        <input className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" value={ad.id || ''} onChange={e => setAddons(s => { const copy = [...s]; copy[idx] = {...copy[idx], id: e.target.value}; return copy; })} placeholder="extra-cake" />
-                                                        <input className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" value={ad.icon || ''} onChange={e => setAddons(s => { const copy = [...s]; copy[idx] = {...copy[idx], icon: e.target.value}; return copy; })} placeholder="🍰" />
-                                                        <input className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" value={ad.name || ''} onChange={e => setAddons(s => { const copy = [...s]; copy[idx] = {...copy[idx], name: e.target.value}; return copy; })} placeholder="Extra Cake" />
-                                                        <input className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" value={ad.nameHi || ''} onChange={e => setAddons(s => { const copy = [...s]; copy[idx] = {...copy[idx], nameHi: e.target.value}; return copy; })} placeholder="अतिरिक्त केक" />
-                                                        <div className="flex gap-2">
-                                                            <input type="number" className="p-2 bg-[#050014] border border-purple-700/40 rounded w-full text-sm" value={ad.price || 0} onChange={e => setAddons(s => { const copy = [...s]; copy[idx] = {...copy[idx], price: Number(e.target.value)}; return copy; })} placeholder="200" />
-                                                            <button className="text-xs text-red-400" onClick={() => setAddons(s => s.filter((_, i) => i !== idx))}>Remove</button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                <div>
-                                                    <Button size="sm" onClick={() => setAddons(s => [...s, { id: '', icon: '', name: '', nameHi: '', price: 0 }])}>Add Add-on</Button>
-                                                </div>
-                                            </div>
-                                            <div className="text-xxs text-purple-400 mt-1">Add optional add-ons that customers can select. ID should be unique, price in INR.</div>
-                                        </div>
+                                        {/* Add-ons removed from DBA product form */}
                                 </div>
                 <div className="mt-3 flex gap-2">
                     {!editingId ? (
@@ -967,21 +738,21 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
                     ) : (
                         <>
                             <Button onClick={handleUpdate}>Update Product</Button>
-                            <Button variant="ghost" onClick={() => { setEditingId(null); setForm({ id: '', name: '', nameHi: '', category: 'birthday', tier: 'basic', price: 0, originalPrice: 0, idealGuests: '', description: '', descriptionHi: '', image: '' }); setItems([{ icon: '🎈', name: 'Balloons', nameHi: '', quantity: '25 pcs' }, { icon: '🎂', name: 'Cake', nameHi: '', quantity: '1 pc' }]); setAddons([{ id: 'extra-cake', icon: '🍰', name: 'Extra Cake', nameHi: 'अतिरिक्त केक', price: 200 }, { id: 'photo-frame', icon: '🖼️', name: 'Photo Frame', nameHi: 'फोटो फ्रेम', price: 150 }, { id: 'candle-set', icon: '🕯️', name: 'Candle Set', nameHi: 'मोमबत्ती सेट', price: 100 }]); setUploadFile(null); }}>Cancel</Button>
+                            <Button variant="ghost" onClick={() => { setEditingId(null); setForm({ id: '', name: '', nameHi: '', category: 'birthday', tier: 'basic', price: 0, originalPrice: 0, idealGuests: '', description: '', descriptionHi: '', image: '' }); setItems([{ icon: '🎈', name: 'Balloons', nameHi: '', quantity: '25 pcs' }, { icon: '🎂', name: 'Cake', nameHi: '', quantity: '1 pc' }]); setUploadFile(null); }}>Cancel</Button>
                         </>
                     )}
                 </div>
             </div>
 
-            <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl p-4">
-                <h2 className="text-lg font-semibold text-purple-200 mb-3">Existing Products</h2>
+            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">Existing Products</h2>
                 {loading ? <div>Loading...</div> : (
                     <ul className="space-y-2 text-sm">
                         {products.map(p => (
                             <li key={p.id || p._id} className="flex items-center justify-between">
                                 <div>
-                                    <div className="font-medium">{p.name} <span className="text-xs text-muted-foreground">({p.id || p._id})</span></div>
-                                    <div className="text-xs text-purple-300/80">{p.category} — ₹{p.price}</div>
+                                    <div className="font-medium text-gray-900">{p.name} <span className="text-xs text-gray-500">({p.id || p._id})</span></div>
+                                    <div className="text-xs text-gray-500">{p.category} — ₹{p.price}</div>
                                 </div>
                                 <div className="flex gap-2">
                                     <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(p.id || p._id)}>Copy ID</Button>
@@ -997,371 +768,4 @@ function ProductsManager({ socketRef }: { socketRef: React.MutableRefObject<impo
     );
 }
 
-/* -------------- EMPLOYEES MANAGER -------------- */
 
-function EmployeesManager() {
-    const { apiFetch, user } = useAuthContext();
-    const [users, setUsers] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [showCreateDBA, setShowCreateDBA] = useState(false);
-    const [showCreateDelivery, setShowCreateDelivery] = useState(false);
-    const [showCreateGIM, setShowCreateGIM] = useState(false);
-    const [formData, setFormData] = useState({ name: '', email: '' });
-
-    useEffect(() => {
-        loadUsers();
-    }, []);
-
-    const loadUsers = async () => {
-        try {
-            setLoading(true);
-            // DBA should only fetch employee list; admins fetch full users
-            const endpoint = user?.role === 'dba' ? '/api/admin/users/employees' : '/api/admin/users';
-            const res = await apiFetch(endpoint);
-            const data = await res.json();
-            // normalize array and filter to employees (exclude influencers — they are managed separately)
-            setUsers(Array.isArray(data) ? data.filter(u => u.role === 'dba' || u.role === 'delivery' || u.role === 'gim') : []);
-        } catch (e) {
-            console.error('Could not load users', e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const createUser = async (role: 'dba' | 'delivery' | 'gim') => {
-        try {
-            const endpoint = role === 'dba' ? '/api/admin/users/dba' :
-                           role === 'delivery' ? '/api/admin/users/delivery' :
-                           '/api/admin/users/gim';
-            const res = await apiFetch(endpoint, {
-                method: 'POST',
-                body: JSON.stringify(formData),
-            });
-            if (res.ok) {
-                await loadUsers();
-                setFormData({ name: '', email: '' });
-                setShowCreateDBA(false);
-                setShowCreateDelivery(false);
-                setShowCreateGIM(false);
-            } else {
-                const error = await res.json();
-                alert(error.error || 'Failed to create user');
-            }
-        } catch (e) {
-            console.error('Error creating user', e);
-            alert('Failed to create user');
-        }
-    };
-
-    const updateUserRole = async (userId: string, newRole: string) => {
-        try {
-            const res = await apiFetch(`/api/admin/users/${userId}/role`, {
-                method: 'PATCH',
-                body: JSON.stringify({ role: newRole }),
-            });
-            if (res.ok) {
-                await loadUsers();
-            } else {
-                const error = await res.json();
-                alert(error.error || 'Failed to update user role');
-            }
-        } catch (e) {
-            console.error('Error updating user role', e);
-            alert('Failed to update user role');
-        }
-    };
-
-    const deleteUser = async (userId: string) => {
-        const confirmed = confirm('Are you sure you want to delete this user?');
-        if (!confirmed) return;
-        try {
-            const res = await apiFetch(`/api/admin/users/${userId}`, {
-                method: 'DELETE',
-            });
-            if (res.ok) {
-                await loadUsers();
-            } else {
-                const error = await res.json();
-                alert(error.error || 'Failed to delete user');
-            }
-        } catch (e) {
-            console.error('Error deleting user', e);
-            alert('Failed to delete user');
-        }
-    };
-
-    const getRoleBadgeColor = (role: string) => {
-        switch (role) {
-            case 'admin': return 'bg-red-600';
-            case 'dba': return 'bg-blue-600';
-            case 'delivery': return 'bg-green-600';
-            case 'gim': return 'bg-purple-600';
-            case 'influencer': return 'bg-orange-600';
-            default: return 'bg-gray-600';
-        }
-    };
-
-    const getRoleDisplayName = (role: string) => {
-        switch (role) {
-            case 'admin': return 'Admin';
-            case 'dba': return 'DBA';
-            case 'delivery': return 'GDM';
-            case 'gim': return 'GIM';
-            case 'influencer': return 'Influencer';
-            default: return role;
-        }
-    };
-
-    // Admin: full user management. DBA: limited to creating delivery boys only.
-    if (user?.role !== 'admin' && user?.role !== 'dba') {
-        return (
-            <div className="text-center py-8">
-                <p className="text-purple-200">Access denied. Admin or DBA privileges required.</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-white">User Management</h2>
-                <div className="flex gap-2">
-                    {user?.role === 'admin' && (
-                        <Button onClick={() => setShowCreateDBA(true)} className="bg-blue-600 hover:bg-blue-700">
-                            Create DBA
-                        </Button>
-                    )}
-                    {user?.role === 'admin' && (
-                        <Button onClick={() => setShowCreateGIM(true)} className="bg-purple-600 hover:bg-purple-700">
-                            Create GIM
-                        </Button>
-                    )}
-                    {(user?.role === 'admin' || user?.role === 'dba') && (
-                        <Button onClick={() => setShowCreateDelivery(true)} className="bg-green-600 hover:bg-green-700">
-                            Create GDM
-                        </Button>
-                    )}
-                </div>
-            </div>
-
-            {loading ? (
-                <div className="text-center py-8">
-                    <p className="text-purple-200">Loading users...</p>
-                </div>
-            ) : (
-                <div className="bg-[#0b021c] border border-purple-700/40 rounded-xl overflow-x-auto">
-                    {/* If DBA, show only delivery creation summary instead of full table */}
-                    {user?.role === 'admin' ? (
-                        <table className="w-full">
-                        <thead className="bg-[#07001b] border-b border-purple-700/40">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Name</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Email</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Role</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Created</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {users.map((u) => (
-                                <tr key={u._id} className="border-b border-purple-700/20">
-                                    <td className="px-4 py-3 text-sm text-white">{u.name || u.email || 'N/A'}</td>
-                                    <td className="px-4 py-3 text-sm text-purple-200">{u.email}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${getRoleBadgeColor(u.role)}`}>
-                                            {getRoleDisplayName(u.role)}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-purple-300">
-                                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex gap-2">
-                                            {u.role !== 'admin' && (
-                                                <>
-                                                    <select
-                                                        value={u.role}
-                                                        onChange={(e) => updateUserRole(u._id, e.target.value)}
-                                                        className="text-xs bg-[#050014] border border-purple-600 text-white rounded px-2 py-1"
-                                                    >
-                                                        <option value="customer">Customer</option>
-                                                        <option value="delivery">GDM</option>
-                                                        <option value="dba">DBA</option>
-                                                        <option value="gim">GIM</option>
-                                                    </select>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="destructive"
-                                                        onClick={() => deleteUser(u._id)}
-                                                        className="text-xs"
-                                                    >
-                                                        Delete
-                                                    </Button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                        </table>
-                    ) : (
-                        <table className="w-full">
-                            <thead className="bg-[#07001b] border-b border-purple-700/40">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Name</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Email</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Role</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-purple-200">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.map((u) => (
-                                    <tr key={u._id || u.id} className="border-b border-purple-700/20">
-                                        <td className="px-4 py-3 text-sm text-white">{u.name || u.email || 'N/A'}</td>
-                                        <td className="px-4 py-3 text-sm text-purple-200">{u.email}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${getRoleBadgeColor(u.role)}`}>
-                                                {getRoleDisplayName(u.role)}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex gap-2">
-                                                {/* DBA can create delivery boys; cannot change other roles or delete admin */}
-                                                {u.role !== 'admin' && (
-                                                    <Button size="sm" variant="ghost" onClick={() => alert('View profile not implemented')}>
-                                                        View
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-            )}
-
-            {/* Create DBA Dialog */}
-            <Dialog open={showCreateDBA} onOpenChange={setShowCreateDBA}>
-                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50">
-                    <DialogHeader>
-                        <DialogTitle className="text-purple-100">Create DBA Account</DialogTitle>
-                        <DialogDescription className="text-purple-300/80">
-                            Create a new DBA (Sub-Admin) account with full operational access.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-purple-200 mb-1">Name</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
-                                placeholder="Enter full name"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-purple-200 mb-1">Email</label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
-                                placeholder="Enter email address"
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowCreateDBA(false)}>Cancel</Button>
-                        <Button onClick={() => createUser('dba')} className="bg-blue-600 hover:bg-blue-700">
-                            Create DBA
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Create GIM Dialog */}
-            <Dialog open={showCreateGIM} onOpenChange={setShowCreateGIM}>
-                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50">
-                    <DialogHeader>
-                        <DialogTitle className="text-purple-100">Create GIM Account</DialogTitle>
-                        <DialogDescription className="text-purple-300/80">
-                            Create a new Gleepack Inventory Manager account for product management.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-purple-200 mb-1">Name</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
-                                placeholder="Enter full name"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-purple-200 mb-1">Email</label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
-                                placeholder="Enter email address"
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowCreateGIM(false)}>Cancel</Button>
-                        <Button onClick={() => createUser('gim')} className="bg-purple-600 hover:bg-purple-700">
-                            Create GIM
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Create Delivery Boy Dialog */}
-            <Dialog open={showCreateDelivery} onOpenChange={setShowCreateDelivery}>
-                <DialogContent className="bg-[#07001b] border border-purple-800/60 text-purple-50">
-                    <DialogHeader>
-                        <DialogTitle className="text-purple-100">Create GDM Account</DialogTitle>
-                        <DialogDescription className="text-purple-300/80">
-                            Create a new GDM account for order assignments.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-purple-200 mb-1">Name</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
-                                placeholder="Enter full name"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-purple-200 mb-1">Email</label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-3 py-2 bg-[#050014] border border-purple-600 rounded text-white"
-                                placeholder="Enter email address"
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowCreateDelivery(false)}>Cancel</Button>
-                        <Button onClick={() => createUser('delivery')} className="bg-green-600 hover:bg-green-700">
-                            Create GDM
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
-    );
-}

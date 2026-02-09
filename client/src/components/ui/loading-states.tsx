@@ -5,11 +5,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 interface LoadingSpinnerProps {
   message?: string;
   size?: 'sm' | 'md' | 'lg';
+  inline?: boolean;
 }
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   message,
   size = 'md'
+  , inline = false
 }) => {
   const { language } = useLanguage();
 
@@ -37,6 +39,14 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   };
 
   const displayMessage = message || defaultMessages[language][Math.floor(Math.random() * defaultMessages[language].length)];
+
+  if (inline) {
+    return (
+      <span className="inline-flex items-center justify-center">
+        <Loader2 className={`${sizeClasses[size]} animate-spin text-primary`} />
+      </span>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center space-y-4 p-8">

@@ -23,20 +23,222 @@ function authMiddleware(req, res, next) {
 
 function superAdminMiddleware(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  // only allow super admin
+  // only allow admin role
   if (req.user.role && req.user.role.toLowerCase() === 'admin') return next();
-  return res.status(403).json({ error: 'Super Admin access required' });
-}
-
-function adminMiddleware(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  // allow admin or dba role for admin operations
-  if (req.user.role && (req.user.role.toLowerCase() === 'admin' || req.user.role.toLowerCase() === 'dba')) return next();
   return res.status(403).json({ error: 'Admin access required' });
 }
 
-// Get all users (admin only), optionally filter by role
-router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
+function adminOrDbaMiddleware(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  // allow both admin and dba roles
+  if (req.user.role && (req.user.role.toLowerCase() === 'admin' || req.user.role.toLowerCase() === 'dba')) return next();
+  return res.status(403).json({ error: 'Admin or DBA access required' });
+}
+
+// ============ ADMIN MANAGEMENT ROUTES ============
+
+// Get all admins
+router.get('/admins', authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    const db = await connect();
+    const admins = await db.collection('admins').find({}).project({ password: 0 }).toArray();
+    return res.json(admins);
+  } catch (err) {
+    console.error('Error fetching admins:', err);
+    return res.status(500).json({ error: 'Failed to fetch admins' });
+  }
+});
+
+// Create admin (admin only)
+router.post('/admins', authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const db = await connect();
+    
+    // Check if admin already exists
+    const existing = await db.collection('admins').findOne({ email });
+    if (existing) {
+      return res.status(409).json({ error: 'Admin with this email already exists' });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    const result = await db.collection('admins').insertOne({
+      email,
+      password: hash,
+      name,
+      role: 'admin',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    const admin = await db.collection('admins').findOne({ _id: result.insertedId }, { projection: { password: 0 } });
+    return res.status(201).json(admin);
+  } catch (err) {
+    console.error('Error creating admin:', err);
+    return res.status(500).json({ error: 'Failed to create admin' });
+  }
+});
+
+// Update admin details
+router.patch('/admins/:id', authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email } = req.body;
+
+    const db = await connect();
+    const ObjectId = require('mongodb').ObjectId;
+
+    const updates = {};
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+    updates.updatedAt = new Date();
+
+    const result = await db.collection('admins').findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: updates },
+      { returnDocument: 'after' }
+    );
+
+    if (!result.value) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    return res.json(result.value);
+  } catch (err) {
+    console.error('Error updating admin:', err);
+    return res.status(500).json({ error: 'Failed to update admin' });
+  }
+});
+
+// Delete admin
+router.delete('/admins/:id', authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await connect();
+    const ObjectId = require('mongodb').ObjectId;
+
+    const result = await db.collection('admins').deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    return res.json({ message: 'Admin deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting admin:', err);
+    return res.status(500).json({ error: 'Failed to delete admin' });
+  }
+});
+
+// ============ DBA MANAGEMENT ROUTES ============
+
+// Get all DBAs
+router.get('/dbas', authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    const db = await connect();
+    const dbas = await db.collection('dbas').find({}).project({ password: 0 }).toArray();
+    return res.json(dbas);
+  } catch (err) {
+    console.error('Error fetching DBAs:', err);
+    return res.status(500).json({ error: 'Failed to fetch DBAs' });
+  }
+});
+
+// Create DBA (admin only)
+router.post('/dbas', authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const db = await connect();
+    
+    // Check if DBA already exists
+    const existing = await db.collection('dbas').findOne({ email });
+    if (existing) {
+      return res.status(409).json({ error: 'DBA with this email already exists' });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    const result = await db.collection('dbas').insertOne({
+      email,
+      password: hash,
+      name,
+      role: 'dba',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    const dba = await db.collection('dbas').findOne({ _id: result.insertedId }, { projection: { password: 0 } });
+    return res.status(201).json(dba);
+  } catch (err) {
+    console.error('Error creating DBA:', err);
+    return res.status(500).json({ error: 'Failed to create DBA' });
+  }
+});
+
+// Update DBA details
+router.patch('/dbas/:id', authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email } = req.body;
+
+    const db = await connect();
+    const ObjectId = require('mongodb').ObjectId;
+
+    const updates = {};
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+    updates.updatedAt = new Date();
+
+    const result = await db.collection('dbas').findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: updates },
+      { returnDocument: 'after' }
+    );
+
+    if (!result.value) {
+      return res.status(404).json({ error: 'DBA not found' });
+    }
+
+    return res.json(result.value);
+  } catch (err) {
+    console.error('Error updating DBA:', err);
+    return res.status(500).json({ error: 'Failed to update DBA' });
+  }
+});
+
+// Delete DBA
+router.delete('/dbas/:id', authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await connect();
+    const ObjectId = require('mongodb').ObjectId;
+
+    const result = await db.collection('dbas').deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'DBA not found' });
+    }
+
+    return res.json({ message: 'DBA deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting DBA:', err);
+    return res.status(500).json({ error: 'Failed to delete DBA' });
+  }
+});
+
+// ============ EXISTING USER ROUTES ============
+router.get('/users', authMiddleware, adminOrDbaMiddleware, async (req, res) => {
   try {
     const db = await connect();
     const { role } = req.query;
@@ -49,8 +251,8 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-// Get employee list (DBA or Admin) - returns only users with employee roles
-router.get('/users/employees', authMiddleware, adminMiddleware, async (req, res) => {
+// Get employee list (admin or DBA) - returns only users with employee roles
+router.get('/users/employees', authMiddleware, adminOrDbaMiddleware, async (req, res) => {
   try {
     const db = await connect();
     const employees = await db.collection('users').find({ role: { $in: ['dba', 'delivery', 'gim'] } }).project({ password: 0 }).toArray();
@@ -85,7 +287,7 @@ router.post('/users/dba', authMiddleware, superAdminMiddleware, async (req, res)
 });
 
 // Create delivery boy account (admin or dba)
-router.post('/users/delivery', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/users/delivery', authMiddleware, adminOrDbaMiddleware, async (req, res) => {
   try {
     const { name, email } = req.body;
     if (!name || !email) {

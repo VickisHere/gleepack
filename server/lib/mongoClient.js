@@ -1,7 +1,11 @@
 const { MongoClient } = require('mongodb');
+const dns = require('dns');
 const dotenv = require('dotenv');
 
 dotenv.config();
+
+// Use Google DNS for SRV lookup - many ISPs/router don't resolve MongoDB Atlas SRV properly
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {
@@ -44,11 +48,13 @@ async function connect() {
   try {
     client = new MongoClient(uri, {
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
       maxIdleTimeMS: 30000,
       retryWrites: true,
       retryReads: true,
+      directConnection: false,
+      ssl: true,
     });
 
     await client.connect();
@@ -87,13 +93,13 @@ async function disconnect() {
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('🛑 Received SIGINT, closing MongoDB connection...');
+  console.log('🛑 SIGINT caught, closing MongoDB connection...');
   await disconnect();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('🛑 Received SIGTERM, closing MongoDB connection...');
+  console.log('🛑 SIGTERM caught, closing MongoDB connection...');
   await disconnect();
   process.exit(0);
 });

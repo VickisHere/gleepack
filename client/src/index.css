@@ -210,6 +210,19 @@
   }
 
   /* Hide scrollbars */
+  html, body, #root {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    min-height: 100vh;
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;  /* Firefox */
+  }
+  html::-webkit-scrollbar, body::-webkit-scrollbar, #root::-webkit-scrollbar {
+    display: none;  /* Safari and Chrome */
+    width: 0;
+    height: 0;
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;  /* Internet Explorer 10+ */
     scrollbar-width: none;  /* Firefox */

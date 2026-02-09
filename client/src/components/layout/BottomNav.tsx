@@ -50,7 +50,7 @@ const BottomNav = () => {
 
   const mainNavItems = [
     { path: '/', label: language === 'en' ? 'Home' : 'होम', icon: Home },
-    { path: '/kits', label: language === 'en' ? 'Kits' : 'किट्स', icon: Package },
+    // Kits removed from bottom nav per request
     ...(isAuthenticated ? [{ path: '/orders', label: language === 'en' ? 'Order' : 'ऑर्डर', icon: ClipboardList }] : []),
     { path: '/contact', label: language === 'en' ? 'Contact' : 'संपर्क', icon: Phone },
   ];

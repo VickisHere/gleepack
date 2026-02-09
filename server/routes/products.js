@@ -29,7 +29,8 @@ function requireInventoryManager(req, res) {
   const token = parts[1];
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    if (payload && (payload.role === 'admin' || payload.role === 'gim')) return true;
+    // Allow admin, GIM and DBA roles to manage inventory (create/update/delete products)
+    if (payload && (payload.role === 'admin' || payload.role === 'gim' || payload.role === 'dba')) return true;
     return false;
   } catch (e) {
     return false;
@@ -92,6 +93,28 @@ router.post('/', async (req, res) => {
     const db = await connect();
     // ensure id exists
     const id = body.id || String(Date.now());
+
+    // Validate and normalize addOns if provided
+    if (body.addOns) {
+      if (!Array.isArray(body.addOns)) return res.status(400).json({ error: 'addOns must be an array' });
+      const seen = new Set();
+      const normalized = body.addOns.map((a, idx) => {
+        if (!a) throw new Error('Invalid addOn item');
+        // ensure id: use provided or generate per-item unique id
+        const aid = a.id || `${id}-addon-${Date.now()}-${idx}`;
+        if (seen.has(aid)) throw new Error('Duplicate addOn id: ' + aid);
+        seen.add(aid);
+        // name required
+        const name = a.name || a.title || '';
+        if (!name) throw new Error('Each addOn requires a name');
+        // priceINR required and numeric
+        const price = a.priceINR !== undefined ? Number(a.priceINR) : (a.price !== undefined ? Number(a.price) : null);
+        if (price === null || Number.isNaN(price) || price < 0) throw new Error('Each addOn requires a valid priceINR >= 0');
+        return Object.assign({}, a, { id: aid, name, priceINR: price });
+      });
+      body.addOns = normalized;
+    }
+
     const doc = Object.assign({}, body, { id });
     await db.collection('products').insertOne(doc);
     try { events.emit('product_created', doc); } catch (e) { console.warn('emit product_created failed'); }
@@ -108,30 +131,47 @@ router.patch('/:id', async (req, res) => {
     if (!requireInventoryManager(req, res)) return res.status(403).json({ error: 'Inventory Manager access required' });
     const db = await connect();
     const id = req.params.id;
-    const update = { $set: req.body || {} };
-    let result;
-    // try by string id
-    try {
-      result = await db.collection('products').findOneAndUpdate({ id: id }, update, { returnOriginal: false });
-    } catch (e) {
-      result = null;
-    }
-    if (!result || !result.value) {
-      // try by number id
+    // validate addOns in update payload (if present)
+    const payload = req.body || {};
+    if (payload.addOns) {
+      if (!Array.isArray(payload.addOns)) return res.status(400).json({ error: 'addOns must be an array' });
+      const seen = new Set();
       try {
-        result = await db.collection('products').findOneAndUpdate({ id: Number(id) }, update, { returnOriginal: false });
+        payload.addOns = payload.addOns.map((a, idx) => {
+          if (!a) throw new Error('Invalid addOn item');
+          const aid = a.id || `addon-${Date.now()}-${idx}`;
+          if (seen.has(aid)) throw new Error('Duplicate addOn id: ' + aid);
+          seen.add(aid);
+          const name = a.name || a.title || '';
+          if (!name) throw new Error('Each addOn requires a name');
+          const price = a.priceINR !== undefined ? Number(a.priceINR) : (a.price !== undefined ? Number(a.price) : null);
+          if (price === null || Number.isNaN(price) || price < 0) throw new Error('Each addOn requires a valid priceINR >= 0');
+          return Object.assign({}, a, { id: aid, name, priceINR: price });
+        });
       } catch (e) {
-        result = null;
+        return res.status(400).json({ error: e.message });
       }
     }
-    if (!result || !result.value) {
-      // try by _id
+
+    const update = { $set: payload };
+    // Build a robust query matching either string id, numeric id, or Mongo _id
+    const or = [];
+    or.push({ id: id });
+    const num = Number(id);
+    if (!Number.isNaN(num)) or.push({ id: num });
+    if (ObjectId.isValid(id)) {
       try {
-        result = await db.collection('products').findOneAndUpdate({ _id: new ObjectId(id) }, update, { returnOriginal: false });
+        or.push({ _id: new ObjectId(id) });
       } catch (e) {
-        result = null;
+        // ignore
       }
     }
+
+    if (or.length === 0) return res.status(404).json({ error: 'Not found' });
+
+    const query = { $or: or };
+    // Use modern driver option to return the updated document
+    const result = await db.collection('products').findOneAndUpdate(query, update, { returnDocument: 'after' });
     if (!result || !result.value) return res.status(404).json({ error: 'Not found' });
     try { events.emit('product_updated', result.value); } catch (e) { console.warn('emit product_updated failed'); }
     return res.json(result.value);
@@ -147,30 +187,18 @@ router.delete('/:id', async (req, res) => {
     if (!requireInventoryManager(req, res)) return res.status(403).json({ error: 'Inventory Manager access required' });
     const db = await connect();
     const id = req.params.id;
-    let result;
-    // try by string id
-    try {
-      result = await db.collection('products').deleteOne({ id: id });
-    } catch (e) {
-      result = { deletedCount: 0 };
+    const or = [];
+    or.push({ id: id });
+    const num = Number(id);
+    if (!Number.isNaN(num)) or.push({ id: num });
+    if (ObjectId.isValid(id)) {
+      try { or.push({ _id: new ObjectId(id) }); } catch (e) { /* ignore */ }
     }
-    if (result.deletedCount === 0) {
-      // try by number id
-      try {
-        result = await db.collection('products').deleteOne({ id: Number(id) });
-      } catch (e) {
-        result = { deletedCount: 0 };
-      }
-    }
-    if (result.deletedCount === 0) {
-      // try by _id
-      try {
-        result = await db.collection('products').deleteOne({ _id: new ObjectId(id) });
-      } catch (e) {
-        result = { deletedCount: 0 };
-      }
-    }
-    if (result.deletedCount === 0) return res.status(404).json({ error: 'Not found' });
+    if (or.length === 0) return res.status(404).json({ error: 'Not found' });
+
+    const query = { $or: or };
+    const result = await db.collection('products').deleteOne(query);
+    if (!result || result.deletedCount === 0) return res.status(404).json({ error: 'Not found' });
     try { events.emit('product_deleted', id); } catch (e) { console.warn('emit product_deleted failed'); }
     return res.json({ ok: true });
   } catch (err) {

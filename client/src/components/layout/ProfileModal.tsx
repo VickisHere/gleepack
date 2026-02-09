@@ -63,10 +63,7 @@ const ProfileModal: React.FC<Props> = ({ open, onOpenChange }) => {
                 <label className="text-sm font-medium">Full name</label>
                 <Input value={profile.name || ''} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
               </div>
-              <div>
-                <label className="text-sm font-medium">User ID</label>
-                <div className="text-sm text-muted-foreground">{profile.id}</div>
-              </div>
+              {/* User ID hidden intentionally */}
             </div>
           ) : (
             <div>No profile available.</div>

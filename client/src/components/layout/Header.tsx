@@ -42,7 +42,6 @@ const Header = () => {
 
   const navLinks = [
     { path: '/', label: t('nav.home') },
-    { path: '/kits', label: t('nav.kits') },
     // show Orders link only for authenticated users
     ...(isAuthenticated ? [{ path: '/orders', label: 'Orders' }] : []),
     { path: '/how-it-works', label: t('nav.howItWorks') },

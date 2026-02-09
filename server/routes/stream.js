@@ -27,7 +27,8 @@ router.get('/orders', async (req, res) => {
   res.flushHeaders && res.flushHeaders();
 
   const payload = verifyTokenFromQuery(req);
-  const isAdmin = payload && (payload.role === 'admin' || payload.role === 'employee');
+  // Allow admin, employee, and delivery roles to receive order events over SSE
+  const isAdmin = payload && (payload.role === 'admin' || payload.role === 'employee' || payload.role === 'delivery');
   const userId = payload && payload.sub ? String(payload.sub) : null;
 
   const writeEvent = (eventName, data) => {

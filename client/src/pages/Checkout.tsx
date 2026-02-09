@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, CreditCard, Banknote, Check } from 'lucide-react';
+import { Calendar, MapPin, CreditCard, Banknote, Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -33,6 +42,8 @@ const Checkout = () => {
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [showNewAddress, setShowNewAddress] = useState(false);
   const [showAddressOptions, setShowAddressOptions] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -69,9 +80,20 @@ const Checkout = () => {
           const res = await apiFetch('/api/profile');
           if (res.ok) {
             const profile = await res.json();
-            setSavedAddresses(profile.addresses || []);
-            if (profile.addresses && profile.addresses.length > 0 && selectedAddress === null) {
-              setSelectedAddress('0');
+            const addrs = profile.addresses || [];
+            setSavedAddresses(addrs);
+            // Prefill name/phone from profile if available
+            setFormData(prev => ({
+              ...prev,
+              name: prev.name || profile.name || profile.fullName || '',
+              phone: prev.phone || profile.phone || profile.mobile || ''
+            }));
+
+            // Prefer an existing Saharsa address if present
+            if (addrs.length > 0 && selectedAddress === null) {
+              const saharsaIdx = addrs.findIndex((a: any) => (a.district || '').toLowerCase() === 'saharsa');
+              if (saharsaIdx !== -1) setSelectedAddress(String(saharsaIdx));
+              else setSelectedAddress('0');
             }
           }
         } catch (e) {
@@ -103,6 +125,46 @@ const Checkout = () => {
     }
   };
 
+  const handleDeleteAddress = async (indexToDelete: number) => {
+    try {
+      const updatedAddresses = savedAddresses.filter((_, idx) => idx !== indexToDelete);
+      console.log('Deleting address at index:', indexToDelete, 'Remaining:', updatedAddresses);
+      
+      const response = await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify({ addresses: updatedAddresses }) });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        console.error('Backend error:', error);
+        toast.error(error.error || (language === 'en' ? 'Failed to delete address' : 'पता हटाने में विफल'));
+        return;
+      }
+      
+      const result = await response.json();
+      console.log('Backend response after delete:', result);
+      
+      setSavedAddresses(result.addresses || updatedAddresses);
+      
+      // If deleted address was selected, select first remaining address or clear
+      if (selectedAddress === String(indexToDelete)) {
+        if (result.addresses && result.addresses.length > 0) {
+          setSelectedAddress('0');
+        } else {
+          setSelectedAddress(null);
+          setShowNewAddress(false);
+          setShowAddressOptions(false);
+        }
+      } else if (parseInt(selectedAddress || '0') > indexToDelete) {
+        // Adjust index if a previous address was deleted
+        setSelectedAddress(String(parseInt(selectedAddress || '0') - 1));
+      }
+      
+      toast.success(language === 'en' ? 'Address deleted successfully' : 'पता सफलतापूर्वक हटा दिया गया');
+    } catch (e) {
+      console.error('Failed to delete address:', e);
+      toast.error(language === 'en' ? 'Failed to delete address' : 'पता हटाने में विफल');
+    }
+  };
+
   const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const pin = e.target.value;
     setFormData({ ...formData, pincode: pin });
@@ -110,13 +172,18 @@ const Checkout = () => {
       try {
         const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
         const data = await res.json();
-        if (data[0].Status === 'Success') {
-          setFormData(prev => ({ ...prev, district: data[0].PostOffice[0].District }));
+        if (data && data[0] && data[0].Status === 'Success') {
+          const district = data[0].PostOffice[0].District || '';
+          setFormData(prev => ({ ...prev, district }));
+          toast.success(language === 'en' ? `District found: ${district}` : `जिला मिला: ${district}`);
         } else {
+          console.warn('Postal API: Invalid pincode or district not found');
+          toast.warning(language === 'en' ? 'Could not find district for this pincode. Please enter manually.' : 'इस पिनकोड के लिए जिला नहीं मिला। कृपया मैन्युअली दर्ज करें।');
           setFormData(prev => ({ ...prev, district: '' }));
         }
       } catch (e) {
-        console.error('Failed to fetch district', e);
+        console.error('Failed to fetch district from postal API', e);
+        toast.warning(language === 'en' ? 'Could not verify pincode. Please enter district manually.' : 'पिनकोड सत्यापित नहीं हो सके। कृपया जिला मैन्युअली दर्ज करें।');
         setFormData(prev => ({ ...prev, district: '' }));
       }
     } else {
@@ -129,8 +196,8 @@ const Checkout = () => {
     
     const currentAddress = selectedAddress !== null ? savedAddresses[parseInt(selectedAddress)] : formData;
     
-    if (!formData.name || !formData.phone || !currentAddress?.flatNo || !currentAddress?.area || !formData.date || !formData.time) {
-      toast.error(language === 'en' ? 'Please fill all required fields' : 'कृपया सभी आवश्यक फ़ील्ड भरें');
+    if (!formData.name || !formData.phone || !currentAddress?.flatNo || !currentAddress?.area || !currentAddress?.pincode || !currentAddress?.district || !formData.date || !formData.time) {
+      toast.error(language === 'en' ? 'Please fill all required fields including pincode and district' : 'कृपया पिनकोड और जिला सहित सभी आवश्यक फ़ील्ड भरें');
       return;
     }
 
@@ -445,23 +512,52 @@ const Checkout = () => {
                       {showAddressOptions && (
                         <div className="space-y-2 mt-4">
                           {savedAddresses.map((addr: any, idx: number) => (
-                            <label key={idx} className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-secondary/10">
-                              <input
-                                type="radio"
-                                name="savedAddress"
-                                value={idx}
-                                checked={selectedAddress === String(idx)}
-                                onChange={() => {
-                                  setSelectedAddress(String(idx));
+                            <div key={idx} className="flex items-center justify-between p-3 border rounded-lg hover:bg-secondary/10">
+                              <label className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="savedAddress"
+                                  value={idx}
+                                  checked={selectedAddress === String(idx)}
+                                  onChange={() => {
+                                    setSelectedAddress(String(idx));
+                                    setShowAddressOptions(false);
+                                  }}
+                                />
+                                <div className="ml-2">
+                                  <p className="font-medium">{addr.flatNo}, {addr.area}{addr.district ? `, ${addr.district}` : ''}{addr.pincode ? ` - ${addr.pincode}` : ''}</p>
+                                  {addr.landmark && <p className="text-sm text-muted-foreground">{addr.landmark}</p>}
+                                  <p className="text-sm text-muted-foreground capitalize">{addr.addressType}</p>
+                                </div>
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => {
+                                  // Load address into form for editing
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    flatNo: addr.flatNo || '',
+                                    area: addr.area || '',
+                                    landmark: addr.landmark || '',
+                                    addressType: addr.addressType || 'home',
+                                    pincode: addr.pincode || '',
+                                    district: addr.district || ''
+                                  }));
+                                  setEditingIndex(idx);
+                                  setShowNewAddress(true);
                                   setShowAddressOptions(false);
-                                }}
-                              />
-                              <div>
-                                <p className="font-medium">{addr.flatNo}, {addr.area}{addr.district ? `, ${addr.district}` : ''}{addr.pincode ? ` - ${addr.pincode}` : ''}</p>
-                                {addr.landmark && <p className="text-sm text-muted-foreground">{addr.landmark}</p>}
-                                <p className="text-sm text-muted-foreground capitalize">{addr.addressType}</p>
+                                }}>
+                                  {language === 'en' ? 'Edit' : 'संपादित करें'}
+                                </Button>
+                                <Button 
+                                  type="button" 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => setDeleteConfirmation(idx)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                               </div>
-                            </label>
+                            </div>
                           ))}
                           <Button type="button" variant="outline" onClick={() => { setShowNewAddress(true); setShowAddressOptions(false); }}>
                             {language === 'en' ? 'Add New Address' : 'नया पता जोड़ें'}
@@ -488,8 +584,8 @@ const Checkout = () => {
                         <Input id="pincode" value={formData.pincode} onChange={handlePincodeChange} required />
                       </div>
                       <div>
-                        <Label htmlFor="district">{language === 'en' ? 'District' : 'जिला'}</Label>
-                        <Input id="district" value={formData.district} readOnly />
+                        <Label htmlFor="district">{language === 'en' ? 'District' : 'जिला'} *</Label>
+                        <Input id="district" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} placeholder={language === 'en' ? 'Auto-filled or enter manually' : 'स्वचालित या मैनुअली दर्ज करें'} />
                       </div>
                       <div>
                         <Label htmlFor="addressType">{language === 'en' ? 'Address Type' : 'पते का प्रकार'}</Label>
@@ -519,8 +615,8 @@ const Checkout = () => {
                         <Input id="pincode" value={formData.pincode} onChange={handlePincodeChange} required />
                       </div>
                       <div>
-                        <Label htmlFor="district">{language === 'en' ? 'District' : 'जिला'}</Label>
-                        <Input id="district" value={formData.district} readOnly />
+                        <Label htmlFor="district">{language === 'en' ? 'District' : 'जिला'} *</Label>
+                        <Input id="district" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} placeholder={language === 'en' ? 'Auto-filled or enter manually' : 'स्वचालित या मैनुअली दर्ज करें'} />
                       </div>
                       <div>
                         <Label htmlFor="addressType">{language === 'en' ? 'Address Type' : 'पते का प्रकार'}</Label>
@@ -531,8 +627,8 @@ const Checkout = () => {
                       </div>
                       <div className="flex gap-2">
                         <Button type="button" onClick={async () => {
-                          if (!formData.flatNo || !formData.area) {
-                            toast.error(language === 'en' ? 'Please fill address fields' : 'कृपया पता फ़ील्ड भरें');
+                          if (!formData.flatNo || !formData.area || !formData.pincode || !formData.district) {
+                            toast.error(language === 'en' ? 'Please fill all address fields (pincode is required to fetch district)' : 'कृपया सभी पता फ़ील्ड भरें (जिला प्राप्त करने के लिए पिनकोड आवश्यक है)');
                             return;
                           }
                           const addressToSave = {
@@ -543,13 +639,23 @@ const Checkout = () => {
                             pincode: formData.pincode,
                             district: formData.district
                           };
-                          const updatedAddresses = [...savedAddresses, addressToSave];
                           try {
+                            let updatedAddresses: any[] = [];
+                            if (editingIndex !== null && typeof editingIndex === 'number') {
+                              updatedAddresses = savedAddresses.map((a: any, i: number) => i === editingIndex ? addressToSave : a);
+                            } else {
+                              updatedAddresses = [...savedAddresses, addressToSave];
+                            }
                             await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify({ addresses: updatedAddresses }) });
                             setSavedAddresses(updatedAddresses);
-                            setSelectedAddress(String(updatedAddresses.length - 1));
+                            if (editingIndex !== null && typeof editingIndex === 'number') {
+                              setSelectedAddress(String(editingIndex));
+                            } else {
+                              setSelectedAddress(String(updatedAddresses.length - 1));
+                            }
                             setShowNewAddress(false);
                             setShowAddressOptions(false);
+                            setEditingIndex(null);
                           } catch (e) {
                             console.error('Failed to save address', e);
                           }
@@ -564,14 +670,23 @@ const Checkout = () => {
                   )}
                   <div className="bg-secondary/20 text-sm p-3 rounded-lg">
                     {(() => {
-                      const currentAddress = selectedAddress !== null ? savedAddresses[parseInt(selectedAddress)] : formData;
-                      const district = currentAddress?.district || formData.district || '';
-                      if (district && district.toLowerCase() !== 'saharsa') {
-                        return language === 'en' ? 'Available soon, stay tuned!' : 'जल्द ही उपलब्ध, बने रहें!';
-                      } else if (district && district.toLowerCase() === 'saharsa') {
+                      // Check if we have a saved address selected
+                      const hasSavedAddress = selectedAddress !== null && savedAddresses.length > 0;
+                      const currentAddress = hasSavedAddress ? savedAddresses[parseInt(selectedAddress)] : formData;
+                      
+                      // Get district: if saved address, use only its district; if not saved, check form input
+                      const district = hasSavedAddress ? (currentAddress?.district || '') : (formData.district || '');
+                      
+                      // Show "Please enter area" only if no saved address AND no form-entered district
+                      if (!district) {
+                        return language === 'en' ? 'Please enter your delivery area' : 'कृपया अपना डिलीवरी क्षेत्र दर्ज करें';
+                      }
+                      
+                      // If they have a district (saved or entered), check if it's Saharsa
+                      if (district.toLowerCase() === 'saharsa') {
                         return language === 'en' ? 'Delivery available in your area!' : 'आपके क्षेत्र में डिलीवरी उपलब्ध!';
                       } else {
-                        return language === 'en' ? 'Please enter your delivery area' : 'कृपया अपना डिलीवरी क्षेत्र दर्ज करें';
+                        return language === 'en' ? 'Available soon, stay tuned!' : 'जल्द ही उपलब्ध, बने रहें!';
                       }
                     })()}
                   </div>
@@ -744,6 +859,39 @@ const Checkout = () => {
           </form>
         </div>
       </section>
+
+      {/* Delete Address Confirmation Modal */}
+      <AlertDialog open={deleteConfirmation !== null}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'en' ? 'Delete Address' : 'पता हटाएं'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'en' 
+                ? 'Are you sure you want to delete this address? This action cannot be undone.' 
+                : 'क्या आप निश्चित हैं कि आप इस पते को हटाना चाहते हैं? यह क्रिया पूर्ववत नहीं की जा सकती।'
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-end gap-3">
+            <AlertDialogCancel onClick={() => setDeleteConfirmation(null)}>
+              {language === 'en' ? 'Cancel' : 'रद्द करें'}
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (deleteConfirmation !== null) {
+                  handleDeleteAddress(deleteConfirmation);
+                  setDeleteConfirmation(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {language === 'en' ? 'Delete' : 'हटाएं'}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
